@@ -1,0 +1,150 @@
+{
+  "common": {
+    "welcome": "Welcome to Prospera",
+    "language": "Language",
+    "selectLanguage": "Select Language",
+    "email": "Email",
+    "phone": "Phone",
+    "memberSince": "Member Since",
+    "notifications": "Notifications",
+    "settings": "Settings",
+    "save": "Save",
+    "editProfile": "Edit Profile",
+    "logout": "Logout"
+  },
+  "tabs": {
+    "home": "Home",
+    "invest": "Invest",
+    "save": "Savings",
+    "inbox": "Inbox",
+    "profile": "Profile"
+  },
+  "profile": {
+    "name": "Amanda Jane",
+    "gender": "Female",
+    "age": "20 years",
+    "bloodType": "Blood O+",
+    "weight": "54 kg",
+    "height": "154 cm",
+    "editProfile": "Edit Profile",
+    "healthData": "Health Data",
+    "settings": "Settings",
+    "logout": "Log Out Account"
+  },
+  "onboarding": {
+    "fixedTermSavings": {
+      "title": "FIXED-TERM SAVINGS",
+      "description": "Set clear savings goals with 10 or 20-week terms. Our structured approach helps you stay disciplined and reach your targets faster."
+    },
+    "guaranteedReturns": {
+      "title": "GUARANTEED RETURNS",
+      "description": "Invest your matured savings with our fixed-rate investment plans. Earn up to 10% APY with no market risk or volatility."
+    },
+    "bankLevelSecurity": {
+      "title": "BANK-LEVEL SECURITY",
+      "description": "Your money is protected with enterprise-grade security. FDIC insured up to $250,000 and fully regulated platform."
+    },
+    "next": "Next"
+  },
+  "login": {
+    "emailPlaceholder": "Enter your email",
+    "passwordPlaceholder": "Password",
+    "rememberMe": "Remember me",
+    "forgotPassword": "Forget password?",
+    "loginButton": "Log In",
+    "newMember": "New Member? ",
+    "signUp": "SignUp"
+  },
+  "signup": {
+    "fullNamePlaceholder": "Full name",
+    "emailPlaceholder": "Enter your email",
+    "phonePlaceholder": "Phone number",
+    "passwordPlaceholder": "Password",
+    "confirmPasswordPlaceholder": "Password Confirm",
+    "signUpButton": "SignUp",
+    "existingMember": "New Member? ",
+    "login": "Login"
+  },
+  "invest": {
+    "invalidAmount": "Invalid Amount",
+    "enterValidAmount": "Enter a valid amount to invest.",
+    "invested": "Invested",
+    "profit": "Profit",
+    "start": "Start",
+    "end": "End",
+    "status": "Status",
+    "statuses": {
+      "active": "Active",
+      "matured": "Matured",
+      "withdrawn": "Withdrawn"
+    },
+    "maturedSavings": "Matured Savings Available",
+    "amountPlaceholder": "Amount to invest",
+    "investButton": "Invest",
+    "fee": "Fee",
+    "netInvested": "Net Invested",
+    "expectedReturn": "Expected Return",
+    "submitted": "Investment Submitted!",
+    "submittedDescription": "Your investment has been successfully submitted. You can track your investment progress below.",
+    "close": "Close",
+    "yourInvestments": "Your Investments",
+    "noInvestments": "No investments yet."
+  },
+  "savings": {
+    "title": "Savings",
+    "startJourney": "Start your savings journey!",
+    "setGoal": "Set your goal and start growing your wealth.",
+    "newPlan": "New Savings Plan",
+    "depositAmount": "Deposit Amount ($)",
+    "savingsDuration": "Savings Duration",
+    "weeks": "weeks",
+    "startPlan": "Start Plan",
+    "cancel": "Cancel",
+    "activeSavings": "Active Savings",
+    "matured": "Matured",
+    "howItWorks": "How Prospera Works",
+    "step1": "Choose your savings target and duration\n(10 or 20 weeks).\nWe will calculate your weekly deposits.",
+    "step2": "Make weekly deposits automatically. \nTrack your progress and stay motivated\nwith our dashboard.",
+    "step3": "When your savings mature, reinvest for\n10% APY returns. \nWatch your wealth compound over time.",
+    "noActivePlans": "No active plans.",
+    "noMaturedPlans": "No matured plans.",
+    "amountToWithdraw": "Amount to Withdraw",
+    "amountToInvest": "Amount to Invest (10% return in 6 months)",
+    "confirmAction": "Confirm Action",
+    "invalidAmount": "Invalid Amount",
+    "enterValidAmount": "Please enter a valid deposit amount.",
+    "depositConfirmation": "Deposit Confirmation",
+    "proceedingToDeposit": "Proceeding to deposit ${{amount}} through Payment Gateway. Fee: ${{fee}}. Net: ${{net}}.",
+    "withdrawalConfirmation": "Withdrawal Confirmation",
+    "withdrawing": "Withdrawing ${{amount}}. Fee: ${{fee}}. Net: ${{net}}.",
+    "error": "Error",
+    "withdrawInvestEqual": "Withdrawal and investment amounts must equal the matured amount.",
+    "amount": "Amount",
+    "maturityDate": "Maturity Date",
+    "progress": "Progress",
+    "maturedOn": "Matured On",
+    "notifications": "Notifications",
+    "promotions": "Promotions",
+    "No new information is available at this time.": "No new information is available at this time.",
+    "There are no current offers.": "There are no current offers.",
+    "name": "Name",
+    "editProfile":"Edit",
+    "Status":"Status",
+    "logout": "logout"
+  },
+  "bank": {
+    "connectAccount": "Connect Your Bank Account",
+    "bankName": "Bank Name",
+    "enterBankName": "Enter your bank name",
+    "accountType": "Account Type",
+    "checking": "Checking",
+    "savings": "Savings",
+    "accountNumber": "Account Number",
+    "enterAccountNumber": "Enter your account number",
+    "routingNumber": "Routing Number",
+    "enterRoutingNumber": "Enter your routing number",
+    "fillAllFields": "Please fill in all fields",
+    "accountConnected": "Bank account connected successfully",
+    "connectionFailed": "Failed to connect bank account"
+  }
+} 

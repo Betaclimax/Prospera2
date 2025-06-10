@@ -1,0 +1,147 @@
+{
+  "common": {
+    "welcome": "Bienvenido a Prospera",
+    "language": "Idioma",
+    "selectLanguage": "Seleccionar Idioma",
+    "email": "Correo electrónico",
+    "phone": "Teléfono",
+    "memberSince": "Miembro desde",
+    "notifications": "Notificaciones",
+    "settings": "Configuración",
+    "save": "Guardar",
+    "editProfile": "Editar Perfil",
+    "logout": "Cerrar Sesión",
+    "payments": "Pagos"
+  },
+  "tabs": {
+    "home": "Inicio",
+    "invest": "Invertir",
+    "save": "Ahorros",
+    "inbox": "Bandeja",
+    "profile": "Perfil"
+  },
+  "profile": {
+    "name": "Amanda Jane",
+    "gender": "Femenino",
+    "age": "20 años",
+    "bloodType": "Sangre O+",
+    "weight": "54 kg",
+    "height": "154 cm",
+    "editProfile": "Editar Perfil",
+    "healthData": "Datos de Salud",
+    "settings": "Configuración",
+    "logout": "Cerrar Sesión"
+  },
+  "onboarding": {
+    "fixedTermSavings": {
+      "title": "AHORROS A PLAZO FIJO",
+      "description": "Establece metas de ahorro claras con plazos de 10 o 20 semanas. Nuestro enfoque estructurado te ayuda a mantener la disciplina y alcanzar tus objetivos más rápido."
+    },
+    "guaranteedReturns": {
+      "title": "RENDIMIENTOS GARANTIZADOS",
+      "description": "Invierte tus ahorros maduros con nuestros planes de inversión de tasa fija. Gana hasta 10% APY sin riesgo de mercado ni volatilidad."
+    },
+    "bankLevelSecurity": {
+      "title": "SEGURIDAD DE NIVEL BANCARIO",
+      "description": "Tu dinero está protegido con seguridad de nivel empresarial. Asegurado por FDIC hasta $250,000 y plataforma completamente regulada."
+    },
+    "next": "Siguiente"
+  },
+  "login": {
+    "emailPlaceholder": "Ingresa tu correo electrónico",
+    "passwordPlaceholder": "Contraseña",
+    "rememberMe": "Recordarme",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "loginButton": "Iniciar Sesión",
+    "newMember": "¿Nuevo miembro? ",
+    "signUp": "Registrarse"
+  },
+  "signup": {
+    "fullNamePlaceholder": "Nombre completo",
+    "emailPlaceholder": "Ingresa tu correo electrónico",
+    "phonePlaceholder": "Número de teléfono",
+    "passwordPlaceholder": "Contraseña",
+    "confirmPasswordPlaceholder": "Confirmar contraseña",
+    "signUpButton": "Registrarse",
+    "existingMember": "¿Ya eres miembro? ",
+    "login": "Iniciar Sesión"
+  },
+  "invest": {
+    "invalidAmount": "Monto Inválido",
+    "enterValidAmount": "Ingresa un monto válido para invertir.",
+    "invested": "Invertido",
+    "profit": "Ganancia",
+    "start": "Inicio",
+    "end": "Fin",
+    "status": "Estado",
+    "statuses": {
+      "active": "Activo",
+      "matured": "Madurado",
+      "withdrawn": "Retirado"
+    },
+    "maturedSavings": "Ahorros Maduros Disponibles",
+    "amountPlaceholder": "Monto a invertir",
+    "investButton": "Invertir",
+    "fee": "Comisión",
+    "netInvested": "Inversión Neta",
+    "expectedReturn": "Retorno Esperado",
+    "submitted": "¡Inversión Enviada!",
+    "submittedDescription": "Tu inversión ha sido enviada exitosamente. Puedes seguir el progreso de tu inversión a continuación.",
+    "close": "Cerrar",
+    "yourInvestments": "Tus Inversiones",
+    "noInvestments": "Aún no hay inversiones."
+  },
+  "savings": {
+    "title": "Ahorros",
+    "startJourney": "¡Comienza tu viaje de ahorro!",
+    "setGoal": "Establece tu meta y comienza a hacer crecer tu riqueza.",
+    "newPlan": "Nuevo Plan de Ahorro",
+    "depositAmount": "Monto de Depósito ($)",
+    "savingsDuration": "Duración del Ahorro",
+    "weeks": "semanas",
+    "startPlan": "Iniciar Plan",
+    "cancel": "Cancelar",
+    "activeSavings": "Ahorros Activos",
+    "matured": "Madurados",
+    "howItWorks": "Cómo Funciona Prospera",
+    "step1": "Elige tu meta de ahorro y duración\n(10 o 20 semanas).\nCalcularemos tus depósitos semanales.",
+    "step2": "Realiza depósitos semanales automáticamente. \nSigue tu progreso y mantente motivado\ncon nuestro panel de control.",
+    "step3": "Cuando tus ahorros maduren, reinvierte para\nobtener 10% APY. \nObserva cómo tu riqueza se multiplica con el tiempo.",
+    "noActivePlans": "No hay planes activos.",
+    "noMaturedPlans": "No hay planes madurados.",
+    "amountToWithdraw": "Monto a Retirar",
+    "amountToInvest": "Monto a Invertir (10% de retorno en 6 meses)",
+    "confirmAction": "Confirmar Acción",
+    "invalidAmount": "Monto Inválido",
+    "enterValidAmount": "Por favor ingresa un monto de depósito válido.",
+    "depositConfirmation": "Confirmación de Depósito",
+    "proceedingToDeposit": "Procediendo a depositar ${{amount}} a través de la Pasarela de Pago. Comisión: ${{fee}}. Neto: ${{net}}.",
+    "withdrawalConfirmation": "Confirmación de Retiro",
+    "withdrawing": "Retirando ${{amount}}. Comisión: ${{fee}}. Neto: ${{net}}.",
+    "error": "Error",
+    "withdrawInvestEqual": "Los montos de retiro e inversión deben ser iguales al monto madurado.",
+    "amount": "Monto",
+    "maturityDate": "Fecha de Maduración",
+    "progress": "Progreso",
+    "maturedOn": "Madurado el"
+  },
+  "bank": {
+    "connectAccount": "Conectar Tu Cuenta Bancaria",
+    "bankName": "Nombre del Banco",
+    "enterBankName": "Ingresa el nombre de tu banco",
+    "accountType": "Tipo de Cuenta",
+    "checking": "Cuenta Corriente",
+    "savings": "Cuenta de Ahorros",
+    "accountNumber": "Número de Cuenta",
+    "enterAccountNumber": "Ingresa tu número de cuenta",
+    "routingNumber": "Número de Ruta",
+    "enterRoutingNumber": "Ingresa tu número de ruta",
+    "fillAllFields": "Por favor completa todos los campos",
+    "accountConnected": "Cuenta bancaria conectada exitosamente",
+    "connectionFailed": "Error al conectar la cuenta bancaria"
+  },
+  "payments": {
+    "welcome": "Bienvenido a Pagos",
+    "description": "Administra tus métodos de pago y transacciones aquí. Puedes agregar nuevos métodos de pago, ver tu historial de transacciones y gestionar tus cuentas conectadas."
+  }
+} 
