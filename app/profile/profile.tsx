@@ -1,3 +1,5 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
@@ -5,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Alert,
   Animated,
+  FlatList,
   Image,
   ImageBackground,
   Modal,
@@ -16,6 +19,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
 import { supabase } from '../../lib/supabase';
 
@@ -26,6 +30,27 @@ interface UserProfile {
   phone_number: string;
   created_at: string;
 }
+
+// Background images array
+const backgroundImages = [
+  require('../../assets/backgrounds/bg1.png'),
+  require('../../assets/backgrounds/bg2.png'),
+  require('../../assets/backgrounds/bg3.png'),
+  require('../../assets/backgrounds/bg4.png'),  
+  require('../../assets/backgrounds/bg5.png'),
+  require('../../assets/backgrounds/bg6.png'),
+  require('../../assets/backgrounds/bg7.png'),
+  require('../../assets/backgrounds/bg8.png'),
+  require('../../assets/backgrounds/bg9.png'),
+  require('../../assets/backgrounds/bg10.png'),
+  require('../../assets/backgrounds/bg11.png'),
+  require('../../assets/backgrounds/bg12.png'),
+  require('../../assets/backgrounds/bg13.png'),
+  require('../../assets/backgrounds/bg14.png'),
+  require('../../assets/backgrounds/bg15.png'),
+  require('../../assets/backgrounds/bg16.png'),
+
+];
 
 export default function Profile() {
   const router = useRouter();
@@ -47,13 +72,18 @@ export default function Profile() {
     twoFactorAuth: false,
     autoSave: true,
     currency: 'USD',
-    language: 'en'
+    language: 'en',
+    backgroundImage: 'bg7.png'
   });
+  const [selectedBackground, setSelectedBackground] = useState(0);
+  const [showBackgroundSelector, setShowBackgroundSelector] = useState(false);
+  const [tempSelectedBackground, setTempSelectedBackground] = useState(0);
 
   const { i18n } = useTranslation();
 
   useEffect(() => {
     fetchUserProfile();
+    loadSavedBackground();
   }, []);
 
   useEffect(() => {
@@ -193,15 +223,71 @@ export default function Profile() {
     i18n.changeLanguage(lang);
   };
 
+  const handleBackgroundImageSelect = async () => {
+    setIsSettingsModalVisible(false);
+    setTimeout(() => {
+      setShowBackgroundSelector(true);
+    }, 300);
+  };
+
+  const loadSavedBackground = async () => {
+    try {
+      const savedIndex = await AsyncStorage.getItem('background-index');
+      if (savedIndex !== null) {
+        const index = parseInt(savedIndex);
+        setSelectedBackground(index);
+        setTempSelectedBackground(index);
+      }
+    } catch (error) {
+      console.error('Error loading background:', error);
+    }
+  };
+
+  const handleBackgroundSelect = (index: number) => {
+    setTempSelectedBackground(index);
+  };
+
+  const handleSaveBackground = async () => {
+    try {
+      await AsyncStorage.setItem('background-index', tempSelectedBackground.toString());
+      setSelectedBackground(tempSelectedBackground);
+      setShowBackgroundSelector(false);
+      
+      // Show toast message with translations
+      Toast.show({
+        type: 'success',
+        text1: t('common.success'),
+        text2: t('common.backgroundUpdated'),
+        position: 'top',
+        visibilityTime: 3000,
+        autoHide: true,
+        onHide: () => {
+          // Navigate to home page to see the changes
+          router.push('../home/home');
+        }
+      });
+    } catch (error) {
+      console.error('Error saving background:', error);
+      Toast.show({
+        type: 'error',
+        text1: t('common.error'),
+        text2: t('common.backgroundUpdateFailed'),
+        position: 'top',
+        visibilityTime: 3000,
+        autoHide: true
+      });
+    }
+  };
+
   return (
     <View style={styles.container}>
       <ImageBackground
-        source={require('@/assets/images/logo3.png')}
+        source={backgroundImages[selectedBackground]}
         style={styles.backgroundImage}
-        resizeMode="contain"
+        resizeMode="cover"
       >
         <LinearGradient
-          colors={['rgba(178, 174, 174, 0.7)', 'rgba(0,0,0,0.5)']}
+          colors={['rgba(255, 255, 255, 0.95)', 'rgba(255, 255, 255, 0.85)']}
           style={styles.gradient}
         >
           <ScrollView style={styles.mainContent} contentContainerStyle={styles.scrollContent}>
@@ -213,64 +299,104 @@ export default function Profile() {
             {/* Profile Header */}
             <View style={styles.profileHeader}>
               <View style={styles.profileImageContainer}>
-                <Text style={styles.profileInitials}>
-                  {userProfile?.full_name
-                    ? userProfile.full_name
-                        .split(' ')
-                        .map(name => name[0])
-                        .join('')
-                        .toUpperCase()
-                        .slice(0, 2)
-                    : 'U'}
-                </Text>
+                <LinearGradient
+                  colors={['#2196F3', '#1976D2']}
+                  style={styles.profileImageGradient}
+                >
+                  <Text style={styles.profileInitials}>
+                    {userProfile?.full_name
+                      ? userProfile.full_name
+                          .split(' ')
+                          .map(name => name[0])
+                          .join('')
+                          .toUpperCase()
+                          .slice(0, 2)
+                      : 'U'}
+                  </Text>
+                </LinearGradient>
               </View>
               <Animated.Text style={[styles.profileName, { opacity: fadeAnim }]}>
                 {userProfile?.full_name || t('profile.name')}
               </Animated.Text>
+              <Text style={styles.profileEmail}>{userProfile?.email}</Text>
             </View>
 
             {/* Profile Information */}
             <View style={styles.profileInfo}>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>{t('common.email')}</Text>
-                <Text style={styles.infoValue}>{userProfile?.email}</Text>
+              <View style={styles.infoSection}>
+                <Text style={styles.sectionTitle}>{t('common.accountInfo')}</Text>
+                <View style={styles.infoCard}>
+                  <View style={styles.infoItem}>
+                    <Ionicons name="mail-outline" size={20} color="#1976D2" />
+                    <View style={styles.infoContent}>
+                      <Text style={styles.infoLabel}>{t('common.email')}</Text>
+                      <Text style={styles.infoValue}>{userProfile?.email}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.infoDivider} />
+                  <View style={styles.infoItem}>
+                    <Ionicons name="call-outline" size={20} color="#1976D2" />
+                    <View style={styles.infoContent}>
+                      <Text style={styles.infoLabel}>{t('common.phone')}</Text>
+                      <Text style={styles.infoValue}>{userProfile?.phone_number || '-'}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.infoDivider} />
+                  <View style={styles.infoItem}>
+                    <Ionicons name="calendar-outline" size={20} color="#1976D2" />
+                    <View style={styles.infoContent}>
+                      <Text style={styles.infoLabel}>{t('common.memberSince')}</Text>
+                      <Text style={styles.infoValue}>
+                        {userProfile?.created_at
+                          ? new Date(userProfile.created_at).toLocaleDateString()
+                          : '-'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
               </View>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>{t('common.phone')}</Text>
-                <Text style={styles.infoValue}>{userProfile?.phone_number}</Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>{t('common.memberSince')}</Text>
-                <Text style={styles.infoValue}>
-                  {userProfile?.created_at
-                    ? new Date(userProfile.created_at).toLocaleDateString()
-                    : '-'}
-                </Text>
-              </View>
-            </View>
 
-            {/* Action Buttons */}
-            <View style={styles.actionButtons}>
-              <TouchableOpacity 
-                style={styles.actionButton} 
-                onPress={() => {
-                  console.log('Edit profile button pressed'); 
-                  handleEditProfile();
-                }}
-              >
-                <Text style={styles.actionButtonText}>{t('common.editProfile')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.actionButton} 
-                onPress={() => setIsSettingsModalVisible(true)}
-              >
-                <Text style={styles.actionButtonText}>{t('common.settings')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionButton, styles.logoutButton]} onPress={handleLogout}>
-                <Text style={[styles.actionButtonText, styles.logoutButtonText]}>
-                  {t('common.logout')}
-                </Text>
-              </TouchableOpacity>
+              {/* Action Buttons */}
+              <View style={styles.actionButtons}>
+                <TouchableOpacity 
+                  style={styles.actionButton} 
+                  onPress={handleEditProfile}
+                >
+                  <LinearGradient
+                    colors={['#2196F3', '#1976D2']}
+                    style={styles.actionButtonGradient}
+                  >
+                    <Ionicons name="create-outline" size={20} color="#FFFFFF" />
+                    <Text style={styles.actionButtonText}>{t('common.editProfile')}</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={styles.actionButton} 
+                  onPress={() => setIsSettingsModalVisible(true)}
+                >
+                  <LinearGradient
+                    colors={['#2196F3', '#1976D2']}
+                    style={styles.actionButtonGradient}
+                  >
+                    <Ionicons name="settings-outline" size={20} color="#FFFFFF" />
+                    <Text style={styles.actionButtonText}>{t('common.settings')}</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.actionButton, styles.logoutButton]} 
+                  onPress={handleLogout}
+                >
+                  <LinearGradient
+                    colors={['#FF5252', '#D32F2F']}
+                    style={styles.actionButtonGradient}
+                  >
+                    <Ionicons name="log-out-outline" size={20} color="#FFFFFF" />
+                    <Text style={styles.actionButtonText}>{t('common.logout')}</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
             </View>
           </ScrollView>
 
@@ -279,22 +405,14 @@ export default function Profile() {
             animationType="slide"
             transparent={true}
             visible={isEditModalVisible}
-            onRequestClose={() => {
-              console.log('Modal close requested'); // Debug log
-              setIsEditModalVisible(false);
-            }}
+            onRequestClose={() => setIsEditModalVisible(false)}
           >
             <View style={styles.modalContainer}>
               <View style={styles.modalContent}>
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>{t('common.editProfile')}</Text>
-                  <TouchableOpacity 
-                    onPress={() => {
-                      console.log('Close button pressed'); 
-                      setIsEditModalVisible(false);
-                    }}
-                  >
-                    <Text style={styles.closeButton}>✕</Text>
+                  <TouchableOpacity onPress={() => setIsEditModalVisible(false)}>
+                    <Ionicons name="close" size={24} color="#666" />
                   </TouchableOpacity>
                 </View>
 
@@ -323,12 +441,14 @@ export default function Profile() {
 
                 <TouchableOpacity 
                   style={styles.saveButton} 
-                  onPress={() => {
-                    console.log('Save button pressed'); 
-                    handleSaveProfile();
-                  }}
+                  onPress={handleSaveProfile}
                 >
-                  <Text style={styles.saveButtonText}>{t('common.save')}</Text>
+                  <LinearGradient
+                    colors={['#2196F3', '#1976D2']}
+                    style={styles.saveButtonGradient}
+                  >
+                    <Text style={styles.saveButtonText}>{t('common.save')}</Text>
+                  </LinearGradient>
                 </TouchableOpacity>
               </View>
             </View>
@@ -346,7 +466,7 @@ export default function Profile() {
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>{t('common.settings')}</Text>
                   <TouchableOpacity onPress={() => setIsSettingsModalVisible(false)}>
-                    <Text style={styles.closeButton}>✕</Text>
+                    <Ionicons name="close" size={24} color="#666" />
                   </TouchableOpacity>
                 </View>
 
@@ -355,7 +475,6 @@ export default function Profile() {
                   <View style={styles.settingsSection}>
                     <Text style={styles.sectionTitle}>{t('common.language')}</Text>
                     <View style={styles.settingItem}>
-                      <Text style={styles.settingLabel}>{t('common.selectLanguage')}</Text>
                       <View style={styles.languageSelector}>
                         <TouchableOpacity 
                           style={[styles.languageOption, settings.language === 'en' && styles.selectedLanguage]}
@@ -379,73 +498,169 @@ export default function Profile() {
 
                   {/* Security Section */}
                   <View style={styles.settingsSection}>
-                    <Text style={styles.sectionTitle}>{t('settings.security')}</Text>
+                    <Text style={styles.sectionTitle}>{t('common.security')}</Text>
                     <View style={styles.settingItem}>
-                      <Text style={styles.settingLabel}>{t('settings.biometricLogin')}</Text>
+                      <Text style={styles.settingLabel}>{t('common.biometricLogin')}</Text>
                       <Switch
                         value={settings.biometricLogin}
                         onValueChange={(value) => handleSettingsChange('biometricLogin', value)}
+                        trackColor={{ false: '#E0E0E0', true: '#2196F3' }}
+                        thumbColor={settings.biometricLogin ? '#1976D2' : '#F5F5F5'}
                       />
                     </View>
                     <View style={styles.settingItem}>
-                      <Text style={styles.settingLabel}>{t('settings.twoFactorAuth')}</Text>
+                      <Text style={styles.settingLabel}>{t('common.twoFactorAuth')}</Text>
                       <Switch
                         value={settings.twoFactorAuth}
                         onValueChange={(value) => handleSettingsChange('twoFactorAuth', value)}
+                        trackColor={{ false: '#E0E0E0', true: '#2196F3' }}
+                        thumbColor={settings.twoFactorAuth ? '#1976D2' : '#F5F5F5'}
                       />
                     </View>
                   </View>
 
                   {/* Preferences Section */}
                   <View style={styles.settingsSection}>
-                    <Text style={styles.sectionTitle}>{t('settings.preferences')}</Text>
+                    <Text style={styles.sectionTitle}>{t('common.preferences')}</Text>
                     <View style={styles.settingItem}>
-                      <Text style={styles.settingLabel}>{t('settings.darkMode')}</Text>
+                      <Text style={styles.settingLabel}>{t('common.darkMode')}</Text>
                       <Switch
                         value={settings.darkMode}
                         onValueChange={(value) => handleSettingsChange('darkMode', value)}
+                        trackColor={{ false: '#E0E0E0', true: '#2196F3' }}
+                        thumbColor={settings.darkMode ? '#1976D2' : '#F5F5F5'}
                       />
                     </View>
                     <View style={styles.settingItem}>
-                      <Text style={styles.settingLabel}>{t('settings.autoSave')}</Text>
+                      <Text style={styles.settingLabel}>{t('common.autoSave')}</Text>
                       <Switch
                         value={settings.autoSave}
                         onValueChange={(value) => handleSettingsChange('autoSave', value)}
+                        trackColor={{ false: '#E0E0E0', true: '#2196F3' }}
+                        thumbColor={settings.autoSave ? '#1976D2' : '#F5F5F5'}
                       />
                     </View>
                   </View>
 
                   {/* Currency Section */}
                   <View style={styles.settingsSection}>
-                    <Text style={styles.sectionTitle}>{t('settings.currency')}</Text>
+                    <Text style={styles.sectionTitle}>{t('common.currency')}</Text>
                     <View style={styles.settingItem}>
-                      <Text style={styles.settingLabel}>{t('settings.selectCurrency')}</Text>
                       <View style={styles.currencySelector}>
                         <TouchableOpacity 
                           style={[styles.currencyOption, settings.currency === 'USD' && styles.selectedCurrency]}
                           onPress={() => handleSettingsChange('currency', 'USD')}
                         >
-                          <Text style={styles.currencyText}>USD</Text>
+                          <Text style={[styles.currencyText, settings.currency === 'USD' && styles.selectedCurrencyText]}>
+                            USD
+                          </Text>
                         </TouchableOpacity>
                         <TouchableOpacity 
                           style={[styles.currencyOption, settings.currency === 'EUR' && styles.selectedCurrency]}
                           onPress={() => handleSettingsChange('currency', 'EUR')}
                         >
-                          <Text style={styles.currencyText}>EUR</Text>
+                          <Text style={[styles.currencyText, settings.currency === 'EUR' && styles.selectedCurrencyText]}>
+                            EUR
+                          </Text>
                         </TouchableOpacity>
                         <TouchableOpacity 
                           style={[styles.currencyOption, settings.currency === 'GBP' && styles.selectedCurrency]}
                           onPress={() => handleSettingsChange('currency', 'GBP')}
                         >
-                          <Text style={styles.currencyText}>GBP</Text>
+                          <Text style={[styles.currencyText, settings.currency === 'GBP' && styles.selectedCurrencyText]}>
+                            GBP
+                          </Text>
                         </TouchableOpacity>
                       </View>
+                    </View>
+                  </View>
+
+                  {/* Background Customization Section */}
+                  <View style={styles.settingsSection}>
+                    <Text style={styles.sectionTitle}>{t('common.background')}</Text>
+                    <View style={styles.settingItem}>
+                      <TouchableOpacity 
+                        style={styles.backgroundButton}
+                        onPress={handleBackgroundImageSelect}
+                      >
+                        <LinearGradient
+                          colors={['#2196F3', '#1976D2']}
+                          style={styles.backgroundButtonGradient}
+                        >
+                          <Ionicons name="image-outline" size={20} color="#FFFFFF" />
+                          <Text style={styles.backgroundButtonText}>{t('common.changeBackground')}</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
                     </View>
                   </View>
                 </ScrollView>
 
                 <TouchableOpacity style={styles.saveButton} onPress={handleSettingsSave}>
-                  <Text style={styles.saveButtonText}>{t('common.save')}</Text>
+                  <LinearGradient
+                    colors={['#2196F3', '#1976D2']}
+                    style={styles.saveButtonGradient}
+                  >
+                    <Text style={styles.saveButtonText}>{t('common.save')}</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+
+          {/* Background Selection Modal */}
+          <Modal
+            visible={showBackgroundSelector}
+            transparent={true}
+            animationType="slide"
+            onRequestClose={() => setShowBackgroundSelector(false)}
+          >
+            <View style={styles.modalContainer}>
+              <View style={[styles.modalContent, { maxHeight: '80%' }]}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>{t('common.selectBackground')}</Text>
+                  <TouchableOpacity onPress={() => setShowBackgroundSelector(false)}>
+                    <Ionicons name="close" size={24} color="#666" />
+                  </TouchableOpacity>
+                </View>
+
+                <FlatList
+                  data={backgroundImages}
+                  numColumns={2}
+                  renderItem={({ item, index }) => (
+                    <TouchableOpacity
+                      style={[
+                        styles.backgroundOption,
+                        tempSelectedBackground === index && styles.selectedBackground
+                      ]}
+                      onPress={() => handleBackgroundSelect(index)}
+                    >
+                      <ImageBackground
+                        source={item}
+                        style={styles.backgroundPreview}
+                        resizeMode="cover"
+                      >
+                        {tempSelectedBackground === index && (
+                          <View style={styles.selectedOverlay}>
+                            <Ionicons name="checkmark-circle" size={32} color="#FFFFFF" />
+                          </View>
+                        )}
+                      </ImageBackground>
+                    </TouchableOpacity>
+                  )}
+                  keyExtractor={(_, index) => index.toString()}
+                  contentContainerStyle={styles.backgroundGrid}
+                />
+
+                <TouchableOpacity 
+                  style={styles.saveButton} 
+                  onPress={handleSaveBackground}
+                >
+                  <LinearGradient
+                    colors={['#2196F3', '#1976D2']}
+                    style={styles.saveButtonGradient}
+                  >
+                    <Text style={styles.saveButtonText}>{t('common.save')}</Text>
+                  </LinearGradient>
                 </TouchableOpacity>
               </View>
             </View>
@@ -453,48 +668,48 @@ export default function Profile() {
 
           {/* Bottom Navigation */}
           <View style={styles.bottomMenuContainer}>
-              {/* Left menu part */}
-              <View style={styles.menuPartLeft}>
-                  <TouchableOpacity style={styles.menuItem} onPress={goHome}>
-                      <Image source={require('../../assets/home/home2.png')} style={{ width: 24, height: 24 }} />
-                  <Animated.Text style={[styles.menuText, { opacity: fadeAnim }]}>
-                    {t('common.home')}
-                  </Animated.Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.menuItem} onPress={goInvest}>
-                      <Image source={require('../../assets/home/invest2.png')} style={{ width: 24, height: 24 }} />
-                  <Animated.Text style={[styles.menuText, { opacity: fadeAnim }]}>
-                    {t('common.invest')}
-                  </Animated.Text>
-                  </TouchableOpacity>
-              </View>
-      
-              {/* Center Invest button */}
-              <View style={styles.investButtonWrapper}>
-                  <TouchableOpacity style={styles.investButton} onPress={goSavings}>
-                      <Image source={require('../../assets/home/save.png')} style={{ width: 32, height: 32 }} />
-                  <Animated.Text style={[styles.investText, { opacity: fadeAnim }]}>
-                    {t('common.save')}
-                  </Animated.Text>
-                  </TouchableOpacity>
-              </View>
-      
-              {/* Right menu part */}
-              <View style={styles.menuPartRight}>
-                  <TouchableOpacity style={styles.menuItem} onPress={goInbox}>
-                  <Image source={require('../../assets/home/bell2.png')} style={{ width: 19, height: 24 }} />
-                  <Animated.Text style={[styles.menuText, { opacity: fadeAnim }]}>
-                    {t('common.inbox')}
-                  </Animated.Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.menuItem}>
-                  <Image source={require('../../assets/home/profile2.png')} style={{ width: 19, height: 24 }} />
-                  <Animated.Text style={[styles.menuText, { opacity: fadeAnim }]}>
-                    {t('common.profile')}
-                  </Animated.Text>
-                  </TouchableOpacity>
-              </View>
+            {/* Left menu part */}
+            <View style={styles.menuPartLeft}>
+                <TouchableOpacity style={styles.menuItem} onPress={goHome}>
+                    <Image source={require('../../assets/home/home2.png')} style={{ width: 24, height: 24 }} />
+                <Animated.Text style={[styles.menuText, { opacity: fadeAnim }]}>
+                  {t('common.home')}
+                </Animated.Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.menuItem} onPress={goInvest}>
+                    <Image source={require('../../assets/home/invest2.png')} style={{ width: 24, height: 24 }} />
+                <Animated.Text style={[styles.menuText, { opacity: fadeAnim }]}>
+                  {t('common.invest')}
+                </Animated.Text>
+                </TouchableOpacity>
             </View>
+    
+            {/* Center Invest button */}
+            <View style={styles.investButtonWrapper}>
+                <TouchableOpacity style={styles.investButton} onPress={goSavings}>
+                    <Image source={require('../../assets/home/save.png')} style={{ width: 32, height: 32 }} />
+                <Animated.Text style={[styles.investText, { opacity: fadeAnim }]}>
+                  {t('common.save')}
+                </Animated.Text>
+                </TouchableOpacity>
+            </View>
+    
+            {/* Right menu part */}
+            <View style={styles.menuPartRight}>
+                <TouchableOpacity style={styles.menuItem} onPress={goInbox}>
+                <Image source={require('../../assets/home/bell2.png')} style={{ width: 19, height: 24 }} />
+                <Animated.Text style={[styles.menuText, { opacity: fadeAnim }]}>
+                  {t('common.inbox')}
+                </Animated.Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.menuItem}>
+                <Image source={require('../../assets/home/profile2.png')} style={{ width: 19, height: 24 }} />
+                <Animated.Text style={[styles.menuText, { opacity: fadeAnim }]}>
+                  {t('common.profile')}
+                </Animated.Text>
+                </TouchableOpacity>
+            </View>
+          </View>
         </LinearGradient>
       </ImageBackground>
     </View>
@@ -504,15 +719,12 @@ export default function Profile() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
-    width: '100%',
-    height: '100%'
+    backgroundColor: '#FFFFFF',
   },
   backgroundImage: {
     flex: 1,
     width: '100%',
     height: '100%',
-    justifyContent: 'flex-start',
   },
   gradient: {
     flex: 1,
@@ -535,78 +747,250 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   profileImageContainer: {
-    width: 70,
-    height: 70,
-    borderRadius: 40,
-    backgroundColor: '#4BCFFA',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  profileImageGradient: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 50,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 15,
-    alignSelf: 'center',
   },
   profileInitials: {
-    fontSize: 28,
+    fontSize: 36,
     color: '#FFFFFF',
     fontWeight: 'bold',
   },
   profileName: {
     fontSize: 24,
-    color: '#FFFFFF',
+    color: '#1976D2',
     fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  profileEmail: {
+    fontSize: 16,
+    color: '#666',
   },
   profileInfo: {
-    backgroundColor: 'rgba(255, 255, 255, 0.35)',
-    borderRadius: 15,
-    padding: 20,
-    marginBottom: 20,
+    gap: 24,
+  },
+  infoSection: {
+    gap: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1976D2',
+    marginBottom: 8,
+  },
+  infoCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   infoItem: {
-    marginBottom: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  infoContent: {
+    marginLeft: 12,
+    flex: 1,
   },
   infoLabel: {
     fontSize: 14,
-    color: '#FFF',
-    marginBottom: 5,
+    color: '#666',
+    marginBottom: 4,
   },
   infoValue: {
     fontSize: 16,
-    color: '#FFFFFF',
+    color: '#1976D2',
+    fontWeight: '500',
+  },
+  infoDivider: {
+    height: 1,
+    backgroundColor: '#E0E0E0',
+    marginVertical: 4,
   },
   actionButtons: {
-    gap: 10,
+    gap: 12,
   },
   actionButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.35)',
-    padding: 15,
-    borderRadius: 10,
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  actionButtonGradient: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    gap: 8,
   },
   actionButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   logoutButton: {
-    backgroundColor: 'rgba(255, 59, 48, 0.2)',
-    marginTop: 10,
+    marginTop: 8,
+    marginBottom: 100
   },
-  logoutButtonText: {
-    color: '#FF3B30',
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    padding: 20,
   },
-  bottomNav: {
+  modalContent: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  modalHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    paddingVertical: 15,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
   },
-  navItem: {
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1976D2',
+  },
+  inputContainer: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 16,
+    color: '#000',
+  },
+  saveButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  saveButtonGradient: {
+    padding: 16,
     alignItems: 'center',
   },
-  navText: {
+  saveButtonText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  settingsScroll: {
+    maxHeight: '80%',
+  },
+  settingsSection: {
+    marginBottom: 24,
+  },
+  settingItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  settingLabel: {
+    fontSize: 16,
+    color: '#333',
+  },
+  languageSelector: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  languageOption: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F5F5F5',
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  selectedLanguage: {
+    backgroundColor: '#1976D2',
+  },
+  languageText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  selectedLanguageText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+  currencySelector: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  currencyOption: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F5F5F5',
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  selectedCurrency: {
+    backgroundColor: '#1976D2',
+  },
+  currencyText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  selectedCurrencyText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+  backgroundButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  backgroundButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    gap: 8,
+  },
+  backgroundButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   bottomMenuContainer: {
     flexDirection: 'row',
@@ -674,133 +1058,35 @@ const styles = StyleSheet.create({
     color: '#000000',
     marginTop: 4,
   },
-  modalContainer: {
+  backgroundGrid: {
+    padding: 16,
+    gap: 16,
+  },
+  backgroundOption: {
     flex: 1,
+    aspectRatio: 1,
+    margin: 8,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'transparent',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  selectedBackground: {
+    borderColor: '#1976D2',
+  },
+  backgroundPreview: {
+    width: '100%',
+    height: '100%',
+  },
+  selectedOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(25, 118, 210, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    zIndex: 1000, // Added zIndex
-  },
-  modalContent: {
-    width: '90%',
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-    zIndex: 1001, // Added zIndex
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000',
-  },
-  closeButton: {
-    fontSize: 24,
-    color: '#666',
-    padding: 5,
-  },
-  inputContainer: {
-    marginBottom: 15,
-  },
-  inputLabel: {
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 5,
-  },
-  input: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 16,
-    color: '#000',
-  },
-  saveButton: {
-    backgroundColor: '#4BCFFA',
-    borderRadius: 10,
-    padding: 15,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  settingsScroll: {
-    maxHeight: '80%',
-  },
-  settingsSection: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 10,
-  },
-  settingItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  settingLabel: {
-    fontSize: 16,
-    color: '#333',
-  },
-  currencySelector: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  currencyOption: {
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#f0f0f0',
-  },
-  selectedCurrency: {
-    backgroundColor: '#4BCFFA',
-  },
-  currencyText: {
-    fontSize: 14,
-    color: '#333',
-  },
-  languageSelector: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  languageOption: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#f0f0f0',
-    minWidth: 100,
-    alignItems: 'center',
-  },
-  selectedLanguage: {
-    backgroundColor: '#4BCFFA',
-  },
-  languageText: {
-    fontSize: 14,
-    color: '#333',
-  },
-  selectedLanguageText: {
-    color: '#fff',
-    fontWeight: 'bold',
   },
 }); 
