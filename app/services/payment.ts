@@ -1,4 +1,3 @@
-
 export interface BankAccount {
   id: string;
   accountNumber: string;
@@ -66,6 +65,26 @@ class PaymentService {
     } catch (error) {
       console.error('Error connecting bank account:', error);
       throw new Error('Failed to connect bank account');
+    }
+  }
+
+  // Connect a debit card
+  async connectDebitCard(cardDetails: { cardNumber: string; expiryDate: string; cvv: string; cardholderName: string }): Promise<PaymentMethod> {
+    try {
+      // Here you would integrate with a payment processor (like Stripe)
+      // For now, we'll simulate the connection
+      const paymentMethod: PaymentMethod = {
+        id: `pm_${Date.now()}`,
+        type: 'card',
+        last4: cardDetails.cardNumber.slice(-4),
+        isDefault: this.paymentMethods.length === 0,
+      };
+
+      this.paymentMethods.push(paymentMethod);
+      return paymentMethod;
+    } catch (error) {
+      console.error('Error connecting debit card:', error);
+      throw new Error('Failed to connect debit card');
     }
   }
 

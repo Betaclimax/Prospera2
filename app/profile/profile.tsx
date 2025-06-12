@@ -20,7 +20,6 @@ import {
   View
 } from 'react-native';
 import Toast from 'react-native-toast-message';
-import { LanguageSwitcher } from '../../components/LanguageSwitcher';
 import { supabase } from '../../lib/supabase';
 
 interface UserProfile {
@@ -49,7 +48,12 @@ const backgroundImages = [
   require('../../assets/backgrounds/bg14.png'),
   require('../../assets/backgrounds/bg15.png'),
   require('../../assets/backgrounds/bg16.png'),
-
+  require('../../assets/backgrounds/bg17.png'),
+  require('../../assets/backgrounds/bg18.png'),
+  require('../../assets/backgrounds/bg19.png'),
+  require('../../assets/backgrounds/bg20.png'),
+  require('../../assets/backgrounds/bg21.png'),
+  require('../../assets/backgrounds/bg22.png'),
 ];
 
 export default function Profile() {
@@ -287,14 +291,10 @@ export default function Profile() {
         resizeMode="cover"
       >
         <LinearGradient
-          colors={['rgba(255, 255, 255, 0.95)', 'rgba(255, 255, 255, 0.85)']}
+          colors={['rgba(255, 255, 255, 255)', 'rgba(255, 255, 255, 255)']}
           style={styles.gradient}
         >
           <ScrollView style={styles.mainContent} contentContainerStyle={styles.scrollContent}>
-            {/* Language Switcher */}
-            <View style={styles.languageSwitcherContainer}>
-              <LanguageSwitcher />
-            </View>
 
             {/* Profile Header */}
             <View style={styles.profileHeader}>

@@ -1,12 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Animated, Dimensions, Easing, FlatList, Image, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, Dimensions, Easing, FlatList, Image, ImageBackground, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import ConnectBankAccount from '../components/ConnectBankAccount';
+import ConnectDebitCard from '../components/ConnectDebitCard';
 import PaymentService, { PaymentMethod } from '../services/payment';
 
 const TRANSACTION_FEE = 0.02;
@@ -68,7 +70,6 @@ interface SavingsModalProps {
   paymentMethods: PaymentMethod[];
   selectedPaymentMethod: string | null;
   setSelectedPaymentMethod: (value: string | null) => void;
-  onConnectBank: () => void;
 }
 
 const SavingsModal = ({ 
@@ -83,11 +84,19 @@ const SavingsModal = ({
   paymentMethods,
   selectedPaymentMethod,
   setSelectedPaymentMethod,
-  onConnectBank
 }: SavingsModalProps) => {
   const { t } = useTranslation();
+  const router = useRouter();
   const weeks = Array.from({ length: 11 }, (_, i) => i + 10);
-  
+
+  const handleGoToPayments = () => {
+    onClose();
+    router.push('../payments/payments');
+  };
+
+  // Get the selected payment method details
+  const selectedMethod = paymentMethods.find(method => method.id === selectedPaymentMethod);
+
   return (
     <Modal
       animationType="fade"
@@ -171,18 +180,35 @@ const SavingsModal = ({
                     </Text>
                   </TouchableOpacity>
                 ))}
+                <TouchableOpacity
+                  style={styles.connectPaymentButton}
+                  onPress={handleGoToPayments}
+                >
+                  <LinearGradient
+                    colors={['#2196F3', '#1976D2']}
+                    style={styles.connectPaymentGradient}
+                  >
+                    <Ionicons name="add-circle-outline" size={24} color="#fff" />
+                    <Text style={styles.connectPaymentText}>
+                      {t('common.addNewPaymentMethod')}
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
               </View>
             ) : (
               <TouchableOpacity
-                style={styles.connectBankButton}
-                onPress={() => {
-                  onClose();
-                  onConnectBank();
-                }}
+                style={styles.connectPaymentButton}
+                onPress={handleGoToPayments}
               >
-                <Text style={styles.connectBankButtonText}>
-                  {t('common.connectBankAccount')}
-                </Text>
+                <LinearGradient
+                  colors={['#2196F3', '#1976D2']}
+                  style={styles.connectPaymentGradient}
+                >
+                  <Ionicons name="card-outline" size={24} color="#fff" />
+                  <Text style={styles.connectPaymentText}>
+                    {t('common.goToPayments')}
+                  </Text>
+                </LinearGradient>
               </TouchableOpacity>
             )}
           </View>
@@ -201,17 +227,15 @@ const SavingsModal = ({
           </View>
 
           <TouchableOpacity
-            style={styles.confirmButton}
+            style={styles.saveButton}
             onPress={onConfirm}
-            disabled={!depositAmount || Number(depositAmount) <= 0}
+            disabled={!depositAmount || Number(depositAmount) <= 0 || !selectedPaymentMethod}
           >
             <LinearGradient
-              colors={['#4A90E2', '#357ABD']}
-              style={styles.gradientButton}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+              colors={['#2196F3', '#1976D2']}
+              style={styles.saveButtonGradient}
             >
-              <Text style={styles.confirmButtonText}>{t('common.startSavings')}</Text>
+              <Text style={styles.saveButtonText}>{t('common.startSavings')}</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -410,8 +434,35 @@ const MagicalCard = ({ style, children }: MagicalCardProps) => {
   return <Animated.View style={[style, cardStyle]}>{children}</Animated.View>;
 };
 
+// Background images array
+const backgroundImages = [
+  require('../../assets/backgrounds/bg1.png'),
+  require('../../assets/backgrounds/bg2.png'),
+  require('../../assets/backgrounds/bg3.png'),
+  require('../../assets/backgrounds/bg4.png'),  
+  require('../../assets/backgrounds/bg5.png'),
+  require('../../assets/backgrounds/bg6.png'),
+  require('../../assets/backgrounds/bg7.png'),
+  require('../../assets/backgrounds/bg8.png'),
+  require('../../assets/backgrounds/bg9.png'),
+  require('../../assets/backgrounds/bg10.png'),
+  require('../../assets/backgrounds/bg11.png'),
+  require('../../assets/backgrounds/bg12.png'),
+  require('../../assets/backgrounds/bg13.png'),
+  require('../../assets/backgrounds/bg14.png'),
+  require('../../assets/backgrounds/bg15.png'),
+  require('../../assets/backgrounds/bg16.png'),
+  require('../../assets/backgrounds/bg17.png'),
+  require('../../assets/backgrounds/bg18.png'),
+  require('../../assets/backgrounds/bg19.png'),
+  require('../../assets/backgrounds/bg20.png'),
+  require('../../assets/backgrounds/bg21.png'),
+  require('../../assets/backgrounds/bg22.png'),
+];
+
 export default function Savings() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const { t, i18n } = useTranslation();
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const [user, setUser] = useState(mockUser);
@@ -428,6 +479,8 @@ export default function Savings() {
   const [showConnectBank, setShowConnectBank] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
+  const [showConnectCard, setShowConnectCard] = useState(false);
+  const [selectedBackground, setSelectedBackground] = useState(0);
 
   useEffect(() => {
     Animated.sequence([
@@ -443,6 +496,42 @@ export default function Savings() {
       }),
     ]).start();
   }, [i18n.language]);
+
+  useEffect(() => {
+    const paymentService = PaymentService.getInstance();
+    const methods = paymentService.getPaymentMethods();
+    setPaymentMethods(methods);
+  }, []);
+
+  useEffect(() => {
+    if (params.openModal === 'true') {
+      setModalVisible(true);
+      
+      if (params.selectedMethodId) {
+        const paymentService = PaymentService.getInstance();
+        const methods = paymentService.getPaymentMethods();
+        setPaymentMethods(methods);
+        
+        setSelectedPaymentMethod(params.selectedMethodId as string);
+      }
+    }
+  }, [params.openModal, params.selectedMethodId]);
+
+  useEffect(() => {
+    loadSavedBackground();
+  }, []);
+
+  const loadSavedBackground = async () => {
+    try {
+      const savedIndex = await AsyncStorage.getItem('background-index');
+      if (savedIndex !== null) {
+        const index = parseInt(savedIndex);
+        setSelectedBackground(index);
+      }
+    } catch (error) {
+      console.error('Error loading background:', error);
+    }
+  };
 
   const goHome = () => {
     router.push('../home/home');
@@ -502,11 +591,6 @@ export default function Savings() {
 
     return () => clearInterval(interval);
   }, [activeSavingsPlans, maturedPlans]);
-
-  useEffect(() => {
-    const paymentService = PaymentService.getInstance();
-    setPaymentMethods(paymentService.getPaymentMethods());
-  }, []);
 
   const startSavingsPlan = async () => {
     if (!depositAmount || isNaN(Number(depositAmount)) || Number(depositAmount) <= 0) {
@@ -607,18 +691,26 @@ export default function Savings() {
 
     return (
       <View style={styles.planCard}>
-        <Animated.Text style={[styles.planTitle, { opacity: fadeAnim }]}>
-          {t('common.activeSavings')}: {item.duration} {t('common.weeks')}
-        </Animated.Text>
-        <Animated.Text style={[styles.planDetail, { opacity: fadeAnim }]}>
-          {t('common.amount')}: ${item.amount.toFixed(2)}
-        </Animated.Text>
-        <Animated.Text style={[styles.planDetail, { opacity: fadeAnim }]}>
-          {t('common.maturityDate')}: {new Date(item.maturityDate).toLocaleDateString()}
-        </Animated.Text>
-        <Animated.Text style={[styles.planDetail, { opacity: fadeAnim }]}>
-          {t('common.progress')}: {progress.toFixed(1)}%
-        </Animated.Text>
+        <View style={styles.planHeader}>
+          <Image 
+            source={require('../../assets/home/save.png')} 
+            style={{ width: 24, height: 24, marginRight: 8 }}
+          />
+          <Text style={styles.planTitle}>
+            {t('common.activeSavings')}: {item.duration} {t('common.weeks')}
+          </Text>
+        </View>
+        <View style={styles.planDetails}>
+          <Text style={styles.planDetail}>
+            {t('common.amount')}: ${item.amount.toFixed(2)}
+          </Text>
+          <Text style={styles.planDetail}>
+            {t('common.maturityDate')}: {new Date(item.maturityDate).toLocaleDateString()}
+          </Text>
+          <Text style={styles.planDetail}>
+            {t('common.progress')}: {progress.toFixed(1)}%
+          </Text>
+        </View>
         <View style={styles.progressBar}>
           <View style={[styles.progressFill, { width: `${progress}%` }]} />
         </View>
@@ -693,151 +785,162 @@ export default function Savings() {
 
   return (
     <View style={styles.container}>
-    <Image
-        source={require('../../assets/home/background3.png')}
+      <ImageBackground
+        source={backgroundImages[selectedBackground]}
         style={styles.backgroundImage}
         resizeMode="cover"
-    />
-
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
       >
-      <View style={styles.header}>
-          <View style={styles.headerTop}>
-            <Text style={styles.headerTitle}>{t('common.title')}</Text>
-            <MagicalButton
-              style={styles.notificationButton}
-              onPress={() => {}}
-            >
-              <Ionicons name="notifications-outline" size={24} color="#000" />
-            </MagicalButton>
-      </View>
-
-          <View style={styles.balanceContainer}>
-            <MagicalCard style={styles.balanceCard}>
-              <View style={styles.balanceHeader}>
-                <Text style={styles.balanceLabel}>{t('common.totalSaved')}</Text>
-                <Ionicons name="information-circle-outline" size={20} color="#FFF" />
-        </View>  
-              <Text style={styles.balanceAmount}>
-                ${activeSavingsPlans.reduce((sum, plan) => sum + plan.amount, 0).toFixed(2)}
-              </Text>
-            </MagicalCard>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
+            <View style={styles.headerTop}>
+              <Text style={styles.headerTitle}>{t('common.title')}</Text>
+              <MagicalButton
+                style={styles.notificationButton}
+                onPress={() => {}}
+              >
+                <Ionicons name="notifications-outline" size={24} color="#000" />
+              </MagicalButton>
+            </View>
           </View>
-      </View>
 
-        <View style={styles.quickActions}>
-          <MagicalButton
-            style={styles.actionButton}
-            onPress={() => setModalVisible(true)}
+          <LinearGradient
+            colors={['#E3F2FD', '#BBDEFB']} 
+            style={styles.balanceSection}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
           >
-            <LinearGradient
-              colors={['#4CAF50', '#45a049']}
-              style={styles.actionGradient}
-            >
-              <Ionicons name="add-circle-outline" size={24} color="#fff" />
-            </LinearGradient>
-            <Text style={styles.actionText}>{t('common.newSavings')}</Text>
-          </MagicalButton>
-          
-          <MagicalButton style={styles.actionButton} onPress={() => router.push('../analytics/analytics')}>
-            <LinearGradient
-              colors={['#2196F3', '#1976D2']}
-              style={styles.actionGradient}
-            >
-              <Ionicons name="analytics-outline" size={24} color="#fff" />
-            </LinearGradient>
-            <Text style={styles.actionText}>{t('common.analytics')}</Text>
-          </MagicalButton>
-          
-          <MagicalButton style={styles.actionButton} onPress={() => router.push('../reports/reports')}>
-            <LinearGradient
-              colors={['#FF9800', '#F57C00']}
-              style={styles.actionGradient}
-            >
-              <Ionicons name="document-text-outline" size={24} color="#fff" />
-            </LinearGradient>
-            <Text style={styles.actionText}>{t('common.reports')}</Text>
-          </MagicalButton>
-        </View>
+            <View style={styles.balanceContainer}>
+              <MagicalCard style={styles.balanceCard}>
+                <View style={styles.balanceHeader}>
+                  <Text style={styles.balanceLabel}>{t('common.totalSaved')}</Text>
+                  <Ionicons name="information-circle-outline" size={20} color="#FFF" />
+                </View>  
+                <Text style={styles.balanceAmount}>
+                  ${activeSavingsPlans.reduce((sum, plan) => sum + plan.amount, 0).toFixed(2)}
+                </Text>
+              </MagicalCard>
+            </View>
+          </LinearGradient>
 
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{t('common.activeSavings')}</Text>
-            <MagicalButton style={styles.viewAllButton} onPress={() => {}}>
-              <Text style={styles.viewAllText}>{t('common.viewAll')}</Text>
-              <Ionicons name="chevron-forward" size={16} color="#FFF" />
-            </MagicalButton>
-          </View>
-
-          {activeSavingsPlans.length === 0 ? (
-            <MagicalCard style={styles.emptyState}>
+          <View style={styles.quickActions}>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => setModalVisible(true)}
+            >
               <Image 
                 source={require('../../assets/home/save.png')} 
-                style={styles.emptyStateIcon}
+                style={styles.actionImage}
               />
-              <Text style={styles.emptyStateText}>{t('common.noActivePlans')}</Text>
-              <Text style={styles.emptyStateSubtext}>{t('common.startSaving')}</Text>
-              <MagicalButton 
-                style={styles.emptyStateButton}
-                onPress={() => setModalVisible(true)}
-              >
-                <Text style={styles.emptyStateButtonText}>{t('common.startNow')}</Text>
-              </MagicalButton>
-            </MagicalCard>
-          ) : (
-            <FlatList
-            data={activeSavingsPlans}
-              renderItem={({ item }) => (
-                <MagicalCard style={styles.planCard}>
-                  {renderSavingsPlan({ item })}
-                </MagicalCard>
-              )}
-            keyExtractor={(item) => item.id.toString()}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.plansList}
-            />
-          )}
-        </View>
-
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{t('common.matured')}</Text>
-            <MagicalButton style={styles.viewAllButton} onPress={() => {}}>
-              <Text style={styles.viewAllText}>{t('common.viewAll')}</Text>
-              <Ionicons name="chevron-forward" size={16} color="#FFF" />
-            </MagicalButton>
+              <Text style={styles.actionText}>{t('common.newSavings')}</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.actionButton} 
+              onPress={() => router.push('../analytics/analytics')}
+            >
+              <Image 
+                source={require('../../assets/home/analytics.png')} 
+                style={styles.actionImage}
+              />
+              <Text style={styles.actionText}>{t('common.analytics')}</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.actionButton} 
+              onPress={() => router.push('../reports/reports')}
+            >
+              <Image 
+                source={require('../../assets/home/reports.png')} 
+                style={styles.actionImage}
+              />
+              <Text style={styles.actionText}>{t('common.reports')}</Text>
+            </TouchableOpacity>
           </View>
 
-          {maturedPlans.length === 0 ? (
-            <MagicalCard style={styles.emptyState}>
-              <Image 
-                source={require('../../assets/home/gold.png')} 
-                style={styles.emptyStateIcon}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{t('common.activeSavings')}</Text>
+              <MagicalButton style={styles.viewAllButton} onPress={() => {}}>
+                <Text style={styles.viewAllText}>{t('common.viewAll')}</Text>
+                <Ionicons name="chevron-forward" size={16} color="#000" />
+              </MagicalButton>
+            </View>
+            
+            {activeSavingsPlans.length === 0 ? (
+              <MagicalCard style={styles.emptyState}>
+                <Image 
+                  source={require('../../assets/home/save.png')} 
+                  style={styles.emptyStateIcon}
+                />
+                <Text style={styles.emptyStateText}>{t('common.noActivePlans')}</Text>
+                <Text style={styles.emptyStateSubtext}>{t('common.startSaving')}</Text>
+                <LinearGradient
+                  colors={['#2196F3', '#1976D2']}
+                  style={styles.connectPaymentGradient}
+                >
+                  <MagicalButton 
+                    style={styles.emptyStateButton}
+                    onPress={() => setModalVisible(true)}
+                  >
+                    <Text style={styles.emptyStateButtonText}>{t('common.startNow')}</Text>
+                  </MagicalButton>
+                </LinearGradient>
+              </MagicalCard>
+            ) : (
+              <FlatList
+                data={activeSavingsPlans}
+                renderItem={({ item }) => (
+                  <MagicalCard style={styles.planCard}>
+                    {renderSavingsPlan({ item })}
+                  </MagicalCard>
+                )}
+                keyExtractor={(item) => item.id.toString()}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.plansList}
               />
-              <Text style={styles.emptyStateText}>{t('common.noMaturedPlans')}</Text>
-              <Text style={styles.emptyStateSubtext}>{t('common.keepSaving')}</Text>
-            </MagicalCard>
-          ) : (
-            <FlatList
-            data={maturedPlans}
-            renderItem={renderMaturedPlan}
-            keyExtractor={(item) => item.id.toString()}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.plansList}
-            />
-          )}
-    </View>
+            )}
+          </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('common.howItWorks')}</Text>
-          <View style={styles.howItWorksContainer}>
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{t('common.matured')}</Text>
+              <MagicalButton style={styles.viewAllButton} onPress={() => {}}>
+                <Text style={styles.viewAllText}>{t('common.viewAll')}</Text>
+                <Ionicons name="chevron-forward" size={16} color="#000" />
+              </MagicalButton>
+            </View>
+            
+            {maturedPlans.length === 0 ? (
+              <MagicalCard style={styles.emptyState}>
+                <Image 
+                  source={require('../../assets/home/gold.png')} 
+                  style={styles.emptyStateIcon}
+                />
+                <Text style={styles.emptyStateText}>{t('common.noMaturedPlans')}</Text>
+                <Text style={styles.emptyStateSubtext}>{t('common.keepSaving')}</Text>
+              </MagicalCard>
+            ) : (
+              <FlatList
+                data={maturedPlans}
+                renderItem={renderMaturedPlan}
+                keyExtractor={(item) => item.id.toString()}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.plansList}
+              />
+            )}
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('common.howItWorks')}</Text>
+            <View style={styles.howItWorksContainer}>
               <FlatList
                 ref={flatListRef}
-              data={splashSlides}
+                data={splashSlides}
                 renderItem={renderSplashItem}
                 keyExtractor={(_item, index) => index.toString()}
                 horizontal
@@ -847,86 +950,106 @@ export default function Savings() {
                 snapToInterval={width}
                 decelerationRate="fast"
               />
-            <View style={styles.dotsContainer}>
-              {splashSlides.map((_, index) => (
-                <View
-                  key={index}
-                  style={[
-                    styles.dot,
-                    index === activeSplashIndex && styles.activeDot,
-                  ]}
-                />
-              ))}
+              <View style={styles.dotsContainer}>
+                {splashSlides.map((_, index) => (
+                  <View
+                    key={index}
+                    style={[
+                      styles.dot,
+                      index === activeSplashIndex && styles.activeDot,
+                    ]}
+                  />
+                ))}
+              </View>
             </View>
           </View>
+        </ScrollView>
+
+        <SavingsModal
+          visible={modalVisible}
+          onClose={() => setModalVisible(false)}
+          onConfirm={startSavingsPlan}
+          depositAmount={depositAmount}
+          setDepositAmount={setDepositAmount}
+          savingsDuration={savingsDuration}
+          setSavingsDuration={setSavingsDuration}
+          transactionFee={TRANSACTION_FEE}
+          paymentMethods={paymentMethods}
+          selectedPaymentMethod={selectedPaymentMethod}
+          setSelectedPaymentMethod={setSelectedPaymentMethod}
+        />
+
+        <View style={styles.bottomMenuContainer}>
+          <View style={styles.menuPartLeft}>
+            <TouchableOpacity style={styles.menuItem} onPress={goHome}>
+              <Image source={require('../../assets/home/home2.png')} style={{ width: 24, height: 24 }} />
+              <Text style={styles.menuText}>{t('common.home')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={goInvest}>
+              <Image source={require('../../assets/home/invest2.png')} style={{ width: 24, height: 24 }} />
+              <Text style={styles.menuText}>{t('common.invest')}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.investButtonWrapper}>
+            <TouchableOpacity style={styles.investButton}>
+              <Image source={require('../../assets/home/save.png')} style={{ width: 32, height: 32 }} />
+              <Text style={styles.investText}>{t('common.save')}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.menuPartRight}>
+            <TouchableOpacity style={styles.menuItem} onPress={goInbox}>
+              <Image source={require('../../assets/home/bell2.png')} style={{ width: 19, height: 24 }} />
+              <Text style={styles.menuText}>{t('common.inbox')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={goProfile}>
+              <Image source={require('../../assets/home/profile2.png')} style={{ width: 19, height: 24 }} />
+              <Text style={styles.menuText}>{t('common.profile')}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </ScrollView>
+      </ImageBackground>
 
-      <SavingsModal
-        visible={modalVisible}
-        onClose={() => setModalVisible(false)}
-        onConfirm={startSavingsPlan}
-        depositAmount={depositAmount}
-        setDepositAmount={setDepositAmount}
-        savingsDuration={savingsDuration}
-        setSavingsDuration={setSavingsDuration}
-        transactionFee={TRANSACTION_FEE}
-        paymentMethods={paymentMethods}
-        selectedPaymentMethod={selectedPaymentMethod}
-        setSelectedPaymentMethod={setSelectedPaymentMethod}
-        onConnectBank={() => setShowConnectBank(true)}
-      />
-
-            <View style={styles.bottomMenuContainer}>
-              <View style={styles.menuPartLeft}>
-                  <TouchableOpacity style={styles.menuItem} onPress={goHome}>
-                  <Image source={require('../../assets/home/home2.png')} style={{ width: 24, height: 24 }} />
-            <Text style={styles.menuText}>{t('common.home')}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.menuItem} onPress={goInvest}>
-                  <Image source={require('../../assets/home/invest2.png')} style={{ width: 24, height: 24 }} />
-            <Text style={styles.menuText}>{t('common.invest')}</Text>
-                  </TouchableOpacity>
-              </View>
-      
-              <View style={styles.investButtonWrapper}>
-                  <TouchableOpacity style={styles.investButton}>
-                  <Image source={require('../../assets/home/save.png')} style={{ width: 32, height: 32 }} />
-            <Text style={styles.investText}>{t('common.save')}</Text>
-                  </TouchableOpacity>
-              </View>
-      
-              <View style={styles.menuPartRight}>
-                  <TouchableOpacity style={styles.menuItem} onPress={goInbox}>
-                  <Image source={require('../../assets/home/bell2.png')} style={{ width: 19, height: 24 }} />
-            <Text style={styles.menuText}>{t('common.inbox')}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.menuItem} onPress={goProfile}>
-                  <Image source={require('../../assets/home/profile2.png')} style={{ width: 19, height: 24 }} />
-            <Text style={styles.menuText}>{t('common.profile')}</Text>
-                  </TouchableOpacity>
-              </View>
-            </View>
-
-    <Modal
-      visible={showConnectBank}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={() => setShowConnectBank(false)}
-    >
-      <View style={[styles.modalOverlay, { zIndex: 1000 }]}>
-        <View style={[styles.bankModalContent, { zIndex: 1001 }]}>
-          <ConnectBankAccount
-            onSuccess={() => {
-              setShowConnectBank(false);
-              const paymentService = PaymentService.getInstance();
-              setPaymentMethods(paymentService.getPaymentMethods());
-            }}
-            onCancel={() => setShowConnectBank(false)}
-          />
+      <Modal
+        visible={showConnectBank}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowConnectBank(false)}
+      >
+        <View style={[styles.modalOverlay, { zIndex: 1000 }]}>
+          <View style={[styles.bankModalContent, { zIndex: 1001 }]}>
+            <ConnectBankAccount
+              onSuccess={() => {
+                setShowConnectBank(false);
+                const paymentService = PaymentService.getInstance();
+                setPaymentMethods(paymentService.getPaymentMethods());
+              }}
+              onCancel={() => setShowConnectBank(false)}
+            />
+          </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+
+      <Modal
+        visible={showConnectCard}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowConnectCard(false)}
+      >
+        <View style={[styles.modalOverlay, { zIndex: 1000 }]}>
+          <View style={[styles.bankModalContent, { zIndex: 1001 }]}>
+            <ConnectDebitCard
+              onSuccess={() => {
+                setShowConnectCard(false);
+                const paymentService = PaymentService.getInstance();
+                setPaymentMethods(paymentService.getPaymentMethods());
+              }}
+              onCancel={() => setShowConnectCard(false)}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -940,7 +1063,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: '100%',
     height: '100%',
-    opacity: 0.9,
   },
   scrollContent: {
     paddingBottom: 120,
@@ -978,7 +1100,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   balanceCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 20,
     padding: 24,
     shadowColor: '#000',
@@ -1020,23 +1141,21 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 24,
     marginBottom: 24,
+    marginTop: 24
   },
   actionButton: {
     alignItems: 'center',
     width: '30%',
   },
-  actionGradient: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
+  actionImage: {
+    width: 32,
+    height: 32,
     marginBottom: 8,
   },
   actionText: {
-    fontSize: 12,
-    color: '#FFF',
-    fontFamily: 'Poppins',
+    fontSize: 14,
+    color: '#000',
+    fontFamily: 'Satoshi',
     textAlign: 'center',
   },
   section: {
@@ -1059,7 +1178,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   viewAllText: {
-    color: '#FFF',
+    color: '#000',
     fontSize: 16,
     fontFamily: 'Poppins',
     marginRight: 4,
@@ -1068,27 +1187,32 @@ const styles = StyleSheet.create({
     paddingRight: 24,
   },
   planCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 20,
     padding: 24,
     marginRight: 16,
     width: width - 96,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
     elevation: 8,
+  },
+  planHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  planDetails: {
+    marginBottom: 16,
   },
   planTitle: {
     fontSize: 18,
     fontFamily: 'Satoshi',
     color: '#000',
     fontWeight: 'bold',
-    marginBottom: 12,
   },
   planDetail: {
     fontSize: 14,
-    color: '#000',
+    color: '#666',
     fontFamily: 'Poppins',
     marginBottom: 8,
   },
@@ -1096,7 +1220,6 @@ const styles = StyleSheet.create({
     height: 4,
     backgroundColor: '#f0f0f0',
     borderRadius: 2,
-    marginTop: 16,
   },
   progressFill: {
     height: '100%',
@@ -1104,11 +1227,15 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   emptyState: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 20,
     padding: 32,
     alignItems: 'center',
     marginTop: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
   },
   emptyStateIcon: {
     width: 64,
@@ -1131,10 +1258,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   emptyStateButton: {
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
+   
   },
   emptyStateButtonText: {
     color: '#fff',
@@ -1179,7 +1303,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '90%',
-    backgroundColor: 'white',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderRadius: 20,
     padding: 20,
     shadowColor: '#000',
@@ -1199,8 +1323,8 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: 'bold',
+    color: '#1976D2',
   },
   closeButton: {
     padding: 5,
@@ -1218,7 +1342,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 10,
+    borderRadius: 12,
     paddingHorizontal: 15,
     height: 50,
   },
@@ -1236,7 +1360,7 @@ const styles = StyleSheet.create({
   iosPickerContainer: {
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 10,
+    borderRadius: 12,
     overflow: 'hidden',
   },
   iosPicker: {
@@ -1245,7 +1369,7 @@ const styles = StyleSheet.create({
   androidPickerContainer: {
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 10,
+    borderRadius: 12,
     overflow: 'hidden',
   },
   androidPicker: {
@@ -1253,7 +1377,7 @@ const styles = StyleSheet.create({
   },
   summaryContainer: {
     backgroundColor: '#f8f9fa',
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 15,
     marginBottom: 20,
   },
@@ -1271,132 +1395,40 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
   },
-  confirmButton: {
-    borderRadius: 10,
+  saveButton: {
+    borderRadius: 12,
     overflow: 'hidden',
+    marginTop: 16,
   },
-  gradientButton: {
-    padding: 15,
+  saveButtonGradient: {
+    padding: 16,
     alignItems: 'center',
   },
-  confirmButtonText: {
-    color: 'white',
+  saveButtonText: {
+    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
-  bottomMenuContainer: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  alignItems: 'flex-end',
-  width: '100%',
-  position: 'absolute',
-  bottom: 0,
-  backgroundColor: 'transparent',
-  zIndex: 10,
-},
-menuPartLeft: {
-  flexDirection: 'row',
-  backgroundColor: '#FFFFFF',
-  paddingVertical: 14,
-  paddingHorizontal: 35,
-  borderTopRightRadius:70,
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: -2 },
-  shadowOpacity: 0.1,
-  shadowRadius: 8,
-  elevation: 8,
-},
-menuPartRight: {
-  flexDirection: 'row',
-  backgroundColor: '#FFFFFF',
-  paddingVertical: 14,
-  paddingHorizontal: 33,
-  borderTopLeftRadius:70,
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: -2 },
-  shadowOpacity: 0.1,
-  shadowRadius: 8,
-  elevation: 8,
-},
-investButtonWrapper: {
-  position: 'absolute',
-  left: '50%',
-  bottom: 15,
-  transform: [{ translateX: -40 }],
-  zIndex: 20,
-},
-investButton: {
-  alignItems: 'center',
-  justifyContent: 'center',
-  backgroundColor: '#fff',
-  borderRadius: 48,
-  width: 80,
-  height: 80,
-},
-investText: {
-  color: '#000000',
-  fontSize: 14,
-  fontFamily: 'Satoshi',
-  marginTop: 2,
-},
-menuItem: {
-  alignItems: 'center',
-  justifyContent: 'center',
-  marginHorizontal: 8,
-},
-menuText: {
-  fontSize: 14,
-  fontFamily: 'Satoshi',
-  color: '#000000',
-  marginTop: 4,
-},
-  bankModalContent: {
-    width: '90%',
-    maxHeight: '80%',
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-},
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-    position: 'relative',
-},
   paymentMethodContainer: {
     marginTop: 10,
   },
   paymentMethodButton: {
-    padding: 15,
+    padding: 16,
     borderWidth: 1,
     borderColor: '#ddd',
-  borderRadius: 10,
+    borderRadius: 12,
     marginBottom: 10,
   },
   selectedPaymentMethod: {
-    borderColor: '#4A90E2',
-    backgroundColor: '#4A90E2',
+    borderColor: '#2196F3',
+    backgroundColor: '#2196F3',
   },
   paymentMethodText: {
     fontSize: 16,
     color: '#333',
-},
+  },
   selectedPaymentMethodText: {
     color: 'white',
-  },
-  connectBankButton: {
-    padding: 15,
-    borderWidth: 1,
-    borderColor: '#4A90E2',
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  connectBankButtonText: {
-    fontSize: 16,
-    color: '#4A90E2',
   },
   splashImageContainer: {
     width: width,
@@ -1443,5 +1475,114 @@ menuText: {
     fontFamily: 'Poppins',
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  bottomMenuContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    width: '100%',
+    position: 'absolute',
+    bottom: 0,
+    backgroundColor: 'transparent',
+    zIndex: 10,
+  },
+  menuPartLeft: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 14,
+    paddingHorizontal: 35,
+    borderTopRightRadius:70,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  menuPartRight: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 14,
+    paddingHorizontal: 33,
+    borderTopLeftRadius:70,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  investButtonWrapper: {
+    position: 'absolute',
+    left: '50%',
+    bottom: 15,
+    transform: [{ translateX: -40 }],
+    zIndex: 20,
+  },
+  investButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 48,
+    width: 80,
+    height: 80,
+  },
+  investText: {
+    color: '#000000',
+    fontSize: 14,
+    fontFamily: 'Satoshi',
+    marginTop: 2,
+  },
+  menuItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 8,
+  },
+  menuText: {
+    fontSize: 14,
+    fontFamily: 'Satoshi',
+    color: '#000000',
+    marginTop: 4,
+  },
+  bankModalContent: {
+    width: '90%',
+    maxHeight: '80%',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    position: 'relative',
+  },
+  connectPaymentButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 10,
+  },
+  connectPaymentGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    gap: 10,
+    borderRadius:12
+  },
+  connectPaymentText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  balanceSection: {
+    marginHorizontal: 20,
+    marginBottom: 12,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  gradient: {
+    flex: 1,
   },
 });

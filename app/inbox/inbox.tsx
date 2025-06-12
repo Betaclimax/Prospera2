@@ -1,13 +1,57 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import React, { useRef, useState, } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Animated, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, } from 'react-native';
+import { Animated, Image, ImageBackground, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
+// Background images array
+const backgroundImages = [
+  require('../../assets/backgrounds/bg1.png'),
+  require('../../assets/backgrounds/bg2.png'),
+  require('../../assets/backgrounds/bg3.png'),
+  require('../../assets/backgrounds/bg4.png'),  
+  require('../../assets/backgrounds/bg5.png'),
+  require('../../assets/backgrounds/bg6.png'),
+  require('../../assets/backgrounds/bg7.png'),
+  require('../../assets/backgrounds/bg8.png'),
+  require('../../assets/backgrounds/bg9.png'),
+  require('../../assets/backgrounds/bg10.png'),
+  require('../../assets/backgrounds/bg11.png'),
+  require('../../assets/backgrounds/bg12.png'),
+  require('../../assets/backgrounds/bg13.png'),
+  require('../../assets/backgrounds/bg14.png'),
+  require('../../assets/backgrounds/bg15.png'),
+  require('../../assets/backgrounds/bg16.png'),
+  require('../../assets/backgrounds/bg17.png'),
+  require('../../assets/backgrounds/bg18.png'),
+  require('../../assets/backgrounds/bg19.png'),
+  require('../../assets/backgrounds/bg20.png'),
+  require('../../assets/backgrounds/bg21.png'),
+  require('../../assets/backgrounds/bg22.png'),
+];
 
 export default function Inbox() {
   const router = useRouter();
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('Notifications');
   const fadeAnim = useRef(new Animated.Value(1)).current;
+  const [selectedBackground, setSelectedBackground] = useState(0);
+
+  useEffect(() => {
+    loadSavedBackground();
+  }, []);
+
+  const loadSavedBackground = async () => {
+    try {
+      const savedIndex = await AsyncStorage.getItem('background-index');
+      if (savedIndex !== null) {
+        const index = parseInt(savedIndex);
+        setSelectedBackground(index);
+      }
+    } catch (error) {
+      console.error('Error loading background:', error);
+    }
+  };
 
   const goHome = () => {
     router.push('../home/home');
@@ -23,100 +67,101 @@ export default function Inbox() {
   }
   return (
     <View style={styles.container}>
-      {/* Background Image */}
-      <Image
-        source={require('../../assets/home/inboxbg3.png')} 
+      <ImageBackground
+        source={backgroundImages[selectedBackground]}
         style={styles.backgroundImage}
         resizeMode="cover"
-      />
-      <ScrollView style={styles.mainContent} contentContainerStyle={styles.scrollContent}>
-        {/* Welcome Section */}
-        <View style={styles.welcomeSection}>
-          <View style={styles.welcomeHeader}>
-            <View style={styles.welcomeContent}>
-              <Text style={styles.welcomeText}>{t('common.inbox')}</Text>
+      >
+       
+          <ScrollView style={styles.mainContent} contentContainerStyle={styles.scrollContent}>
+            {/* Welcome Section */}
+            <View style={styles.welcomeSection}>
+              <View style={styles.welcomeHeader}>
+                <View style={styles.welcomeContent}>
+                  <Text style={styles.welcomeText}>{t('common.inbox')}</Text>
+                </View>
+              </View>
+            </View>
+            <View style={[styles.tabs, styles.fullSpaceBlock]}>
+              <TouchableOpacity
+                style={[styles.tab, styles.tabBorder, activeTab === 'Notifications' && styles.activeTab]}
+                onPress={() => setActiveTab('Notifications')}
+              >
+                <Text style={[styles.label, styles.labelTypo, activeTab === 'Notifications' && styles.activeLabel]}>
+                  {t('common.notifications')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.tab1, styles.tabBorder, activeTab === 'Promotions' && styles.activeTab]}
+                onPress={() => setActiveTab('Promotions')}
+              >
+                <Text style={[styles.label1, styles.labelTypo, activeTab === 'Promotions' && styles.activeLabel]}>
+                  {t('common.promotions')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Content Section Based on Active Tab */}
+            <View style={styles.contentContainer}>
+              {activeTab === 'Notifications' ? (
+                <Text style={styles.placeholderText}>
+                  {t('common.No new information is available at this time.')}
+                </Text>
+              ) : (
+                <Text style={styles.placeholderText}>
+                  {t('common.There are no current offers.')}
+                </Text>
+              )}
+            </View>
+            {/* Add extra space so content doesn't hide behind menu */}
+            <View style={{ height: 120 }} />
+          </ScrollView>
+
+          {/* Bottom Menu Bar - OUTSIDE the ScrollView */}
+          <View style={styles.bottomMenuContainer}>
+            {/* Left menu part */}
+            <View style={styles.menuPartLeft}>
+              <TouchableOpacity style={styles.menuItem} onPress={goHome}>
+                <Image source={require('../../assets/home/home2.png')} style={{ width: 24, height: 24 }} />
+                <Animated.Text style={[styles.menuText, { opacity: fadeAnim }]}>
+                  {t('common.home')}
+                </Animated.Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.menuItem} onPress={goInvest}>
+                <Image source={require('../../assets/home/invest2.png')} style={{ width: 24, height: 24 }} />
+                <Animated.Text style={[styles.menuText, { opacity: fadeAnim }]}>
+                  {t('common.invest')}
+                </Animated.Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Center Invest button */}
+            <View style={styles.investButtonWrapper}>
+              <TouchableOpacity style={styles.investButton} onPress={goSavings}>
+                <Image source={require('../../assets/home/save.png')} style={{ width: 32, height: 32 }} />
+                <Animated.Text style={[styles.investText, { opacity: fadeAnim }]}>
+                  {t('common.save')}
+                </Animated.Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Right menu part */}
+            <View style={styles.menuPartRight}>
+              <TouchableOpacity style={styles.menuItem}>
+                <Image source={require('../../assets/home/bell2.png')} style={{ width: 19, height: 24 }} />
+                <Animated.Text style={[styles.menuText, { opacity: fadeAnim }]}>
+                  {t('common.inbox')}
+                </Animated.Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.menuItem} onPress={goProfile}>
+                <Image source={require('../../assets/home/profile2.png')} style={{ width: 19, height: 24 }} />
+                <Animated.Text style={[styles.menuText, { opacity: fadeAnim }]}>
+                  {t('common.profile')}
+                </Animated.Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </View>
-        <View style={[styles.tabs, styles.fullSpaceBlock]}>
-          <TouchableOpacity
-            style={[styles.tab, styles.tabBorder, activeTab === 'Notifications' && styles.activeTab]}
-            onPress={() => setActiveTab('Notifications')}
-          >
-            <Text style={[styles.label, styles.labelTypo, activeTab === 'Notifications' && styles.activeLabel]}>
-              {t('common.notifications')}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab1, styles.tabBorder, activeTab === 'Promotions' && styles.activeTab]}
-            onPress={() => setActiveTab('Promotions')}
-          >
-            <Text style={[styles.label1, styles.labelTypo, activeTab === 'Promotions' && styles.activeLabel]}>
-              {t('common.promotions')}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Content Section Based on Active Tab */}
-        <View style={styles.contentContainer}>
-          {activeTab === 'Notifications' ? (
-            <Text style={styles.placeholderText}>
-              {t('common.No new information is available at this time.')}
-            </Text>
-          ) : (
-            <Text style={styles.placeholderText}>
-              {t('common.There are no current offers.')}
-            </Text>
-          )}
-        </View>
-        {/* Add extra space so content doesn't hide behind menu */}
-        <View style={{ height: 120 }} />
-      </ScrollView>
-
-      {/* Bottom Menu Bar - OUTSIDE the ScrollView */}
-      <View style={styles.bottomMenuContainer}>
-        {/* Left menu part */}
-        <View style={styles.menuPartLeft}>
-          <TouchableOpacity style={styles.menuItem} onPress={goHome}>
-            <Image source={require('../../assets/home/home2.png')} style={{ width: 24, height: 24 }} />
-            <Animated.Text style={[styles.menuText, { opacity: fadeAnim }]}>
-              {t('common.home')}
-            </Animated.Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem} onPress={goInvest}>
-            <Image source={require('../../assets/home/invest2.png')} style={{ width: 24, height: 24 }} />
-            <Animated.Text style={[styles.menuText, { opacity: fadeAnim }]}>
-              {t('common.invest')}
-            </Animated.Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Center Invest button */}
-        <View style={styles.investButtonWrapper}>
-          <TouchableOpacity style={styles.investButton} onPress={goSavings}>
-            <Image source={require('../../assets/home/save.png')} style={{ width: 32, height: 32 }} />
-            <Animated.Text style={[styles.investText, { opacity: fadeAnim }]}>
-              {t('common.save')}
-            </Animated.Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Right menu part */}
-        <View style={styles.menuPartRight}>
-          <TouchableOpacity style={styles.menuItem}>
-            <Image source={require('../../assets/home/bell2.png')} style={{ width: 19, height: 24 }} />
-            <Animated.Text style={[styles.menuText, { opacity: fadeAnim }]}>
-              {t('common.inbox')}
-            </Animated.Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem} onPress={goProfile}>
-            <Image source={require('../../assets/home/profile2.png')} style={{ width: 19, height: 24 }} />
-            <Animated.Text style={[styles.menuText, { opacity: fadeAnim }]}>
-              {t('common.profile')}
-            </Animated.Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      </ImageBackground>
     </View>
   );
 }
@@ -284,5 +329,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Satoshi',
     marginTop: 2,
+  },
+  gradient: {
+    flex: 1,
   },
 });
