@@ -6,7 +6,12 @@ import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'reac
 
 
 interface ConnectBankAccountProps {
-  onSuccess: () => void;
+  onSuccess: (accountDetails: {
+    accountNumber: string;
+    routingNumber: string;
+    accountType: 'checking' | 'savings';
+    bankName: string;
+  }) => void;
   onCancel: () => void;
 }
 
@@ -25,7 +30,15 @@ export default function ConnectBankAccount({ onSuccess, onCancel }: ConnectBankA
         return;
       }
 
-      // Navigate to payments page
+      // Pass the account details to onSuccess
+      onSuccess({
+        accountNumber,
+        routingNumber,
+        accountType,
+        bankName,
+      });
+      
+      // Then navigate to payments page
       router.push('../payments/payments');
     } catch (error) {
       Alert.alert(t('common.error'), t('common.connectionFailed'));

@@ -37,6 +37,12 @@ const backgroundImages = [
   require('../../assets/backgrounds/bg14.png'),
   require('../../assets/backgrounds/bg15.png'),
   require('../../assets/backgrounds/bg16.png'),
+  require('../../assets/backgrounds/bg17.png'),
+  require('../../assets/backgrounds/bg18.png'),
+  require('../../assets/backgrounds/bg19.png'),
+  require('../../assets/backgrounds/bg20.png'),
+  require('../../assets/backgrounds/bg21.png'),
+  require('../../assets/backgrounds/bg22.png'),
 ];
 
 interface UserProfile {
@@ -306,7 +312,7 @@ export default function Home() {
                 style={styles.magicButton}
                 onPress={handleQuickActionPress}
               >
-    <LinearGradient
+              <LinearGradient
                   colors={['#E3F2FD', '#BBDEFB']}
                   style={styles.magicButtonGradient}
                   start={{ x: 0, y: 0 }}
@@ -1448,10 +1454,10 @@ accountDetailsContainer: {
   elevation: 2,
 },
 accountDetailRow: {
-    marginBottom: 16,
+  marginBottom: 16,
 },
 accountDetailLabel: {
-  fontSize: 16,
+  fontSize: 14,
   color: '#666',
   marginBottom: 4,
 },

@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
+const { width } = Dimensions.get('window');
 
 type IconName = 'trending-up' | 'wallet-outline' | 'shield-checkmark-outline' | 'analytics-outline' | 'arrow-back' | 'arrow-forward' | 'apps-outline';
 
@@ -15,6 +16,8 @@ interface Insight {
   category: string;
   date: string;
   image?: any;
+  trend?: 'up' | 'down' | 'neutral';
+  value?: string;
 }
 
 export default function Insights() {
@@ -39,6 +42,8 @@ export default function Insights() {
       category: 'Market',
       date: '2h ago',
       image: require('../../assets/home/banner1.png'),
+      trend: 'up',
+      value: '+15%',
     },
     {
       id: 2,
@@ -48,6 +53,8 @@ export default function Insights() {
       category: 'Savings',
       date: '5h ago',
       image: require('../../assets/home/banner2.png'),
+      trend: 'up',
+      value: '+8%',
     },
     {
       id: 3,
@@ -57,6 +64,7 @@ export default function Insights() {
       category: 'Security',
       date: '1d ago',
       image: require('../../assets/home/banner3.png'),
+      trend: 'neutral',
     },
     {
       id: 4,
@@ -66,53 +74,67 @@ export default function Insights() {
       category: 'Analytics',
       date: '2d ago',
       image: require('../../assets/home/banner1.png'),
+      trend: 'up',
+      value: '+12%',
     },
   ];
+
+  const getTrendColor = (trend: 'up' | 'down' | 'neutral') => {
+    switch (trend) {
+      case 'up':
+        return '#4CAF50';
+      case 'down':
+        return '#F44336';
+      default:
+        return '#9E9E9E';
+    }
+  };
 
   return (
     <View style={styles.container}>
       {/* Header */}
-      <LinearGradient
-        colors={['#000000', '#1a1a1a']}
-        style={styles.header}
-      >
+      <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          <Ionicons name="arrow-back" size={24} color="#1976D2" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('common.insights')}</Text>
-        <View style={styles.backButton} />
-      </LinearGradient>
+        <TouchableOpacity style={styles.backButton}>
+          <Ionicons name="notifications-outline" size={24} color="#1976D2" />
+        </TouchableOpacity>
+      </View>
 
       {/* Categories */}
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false} 
-        style={styles.categoriesContainer}
-        contentContainerStyle={styles.categoriesContent}
-      >
-        {categories.map((category) => (
-          <TouchableOpacity
-            key={category.id}
-            style={[
-              styles.categoryButton,
-              activeCategory === category.id && styles.activeCategory
-            ]}
-            onPress={() => setActiveCategory(category.id)}
-          >
-            <Ionicons 
-              name={category.icon as IconName} 
-              size={16} 
-              color={activeCategory === category.id ? '#000000' : '#FFFFFF'} 
-            />
-            <Text style={[
-              styles.categoryText,
-              activeCategory === category.id && styles.activeCategoryText
-            ]}>
-              {category.name}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <View style={styles.categoriesWrapper}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          style={styles.categoriesContainer}
+          contentContainerStyle={styles.categoriesContent}
+        >
+          {categories.map((category) => (
+            <TouchableOpacity
+              key={category.id}
+              style={[
+                styles.categoryButton,
+                activeCategory === category.id && styles.activeCategory
+              ]}
+              onPress={() => setActiveCategory(category.id)}
+            >
+              <Ionicons 
+                name={category.icon as IconName} 
+                size={20} 
+                color={activeCategory === category.id ? '#FFFFFF' : '#1976D2'} 
+              />
+              <Text style={[
+                styles.categoryText,
+                activeCategory === category.id && styles.activeCategoryText
+              ]}>
+                {category.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
 
       {/* Insights List */}
       <ScrollView style={styles.insightsList} contentContainerStyle={styles.insightsListContent}>
@@ -121,23 +143,32 @@ export default function Insights() {
             <Image source={insight.image} style={styles.insightImage} />
             <View style={styles.insightContent}>
               <View style={styles.insightHeader}>
-                <View style={styles.insightIconContainer}>
-                  <Ionicons name={insight.icon} size={20} color="#00cc00" />
+                <View style={[styles.insightIconContainer, { backgroundColor: `${getTrendColor(insight.trend!)}15` }]}>
+                  <Ionicons name={insight.icon} size={20} color={getTrendColor(insight.trend!)} />
                 </View>
                 <View style={styles.insightInfo}>
                   <Text style={styles.insightTitle}>{insight.title}</Text>
                   <View style={styles.insightMeta}>
-                    <View style={styles.categoryTag}>
-                      <Text style={styles.categoryText}>{insight.category}</Text>
+                    <View style={[styles.categoryTag, { backgroundColor: `${getTrendColor(insight.trend!)}15` }]}>
+                      <Text style={[styles.categoryText, { color: getTrendColor(insight.trend!) }]}>
+                        {insight.category}
+                      </Text>
                     </View>
                     <Text style={styles.insightDate}>{insight.date}</Text>
                   </View>
                 </View>
+                {insight.value && (
+                  <View style={[styles.trendValue, { backgroundColor: `${getTrendColor(insight.trend!)}15` }]}>
+                    <Text style={[styles.trendValueText, { color: getTrendColor(insight.trend!) }]}>
+                      {insight.value}
+                    </Text>
+                  </View>
+                )}
               </View>
               <Text style={styles.insightDescription}>{insight.description}</Text>
               <TouchableOpacity style={styles.learnMoreButton}>
                 <Text style={styles.learnMoreText}>{t('common.learnMore')}</Text>
-                <Ionicons name="arrow-forward" size={16} color="#00cc00" />
+                <Ionicons name="arrow-forward" size={16} color="#1976D2" />
               </TouchableOpacity>
             </View>
           </TouchableOpacity>
@@ -150,7 +181,7 @@ export default function Insights() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#F5F5F5',
   },
   header: {
     flexDirection: 'row',
@@ -159,6 +190,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 60,
     paddingBottom: 20,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
   },
   backButton: {
     width: 40,
@@ -170,36 +204,43 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontFamily: 'Satoshi',
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#1976D2',
+  },
+  categoriesWrapper: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+    paddingVertical: 12,
   },
   categoriesContainer: {
-    backgroundColor: '#000000',
+    backgroundColor: '#FFFFFF',
   },
   categoriesContent: {
     paddingHorizontal: 20,
-    paddingVertical: 12,
-    gap: 8,
+    gap: 12,
   },
   categoryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    gap: 6,
+    backgroundColor: '#F5F5F5',
+    gap: 8,
+    minWidth: 100,
+    justifyContent: 'center',
   },
   activeCategory: {
-    backgroundColor: '#00cc00',
+    backgroundColor: '#1976D2',
   },
   categoryText: {
-    fontSize: 12,
+    fontSize: 14,
     fontFamily: 'Satoshi',
-    color: '#FFFFFF',
-    fontWeight: '500',
+    color: '#1976D2',
+    fontWeight: '600',
   },
   activeCategoryText: {
-    color: '#000000',
+    color: '#FFFFFF',
     fontWeight: '700',
   },
   insightsList: {
@@ -209,10 +250,15 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   insightCard: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     marginBottom: 20,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   insightImage: {
     width: '100%',
@@ -231,7 +277,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(0, 204, 0, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -240,10 +285,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   insightTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: 'Satoshi',
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#000000',
     marginBottom: 6,
   },
   insightMeta: {
@@ -252,7 +297,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   categoryTag: {
-    backgroundColor: 'rgba(0, 204, 0, 0.1)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -260,21 +304,19 @@ const styles = StyleSheet.create({
   insightDate: {
     fontSize: 12,
     fontFamily: 'Satoshi',
-    color: '#FFFFFF',
-    opacity: 0.6,
+    color: '#666666',
   },
   insightDescription: {
     fontSize: 14,
     fontFamily: 'Satoshi',
-    color: '#FFFFFF',
-    opacity: 0.8,
+    color: '#666666',
     marginBottom: 16,
     lineHeight: 20,
   },
   learnMoreButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 204, 0, 0.1)',
+    backgroundColor: '#E3F2FD',
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 10,
@@ -283,8 +325,18 @@ const styles = StyleSheet.create({
   learnMoreText: {
     fontSize: 14,
     fontFamily: 'Satoshi',
-    color: '#00cc00',
+    color: '#1976D2',
     fontWeight: '600',
     marginRight: 6,
+  },
+  trendValue: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  trendValueText: {
+    fontSize: 14,
+    fontFamily: 'Satoshi',
+    fontWeight: '600',
   },
 }); 
