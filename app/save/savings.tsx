@@ -333,7 +333,6 @@ interface MagicalButtonProps {
 interface MagicalCardProps {
   style: any;
   children: React.ReactNode;
-  noShadow?: boolean; // Add this prop
 }
 
 const MagicalButton = ({ onPress, style, children }: MagicalButtonProps) => {
@@ -400,7 +399,7 @@ const MagicalButton = ({ onPress, style, children }: MagicalButtonProps) => {
   );
 };
 
-const MagicalCard = ({ style, children, noShadow }: MagicalCardProps) => {
+const MagicalCard = ({ style, children }: MagicalCardProps) => {
   const { glowAnim, rotateAnim, startGlow, startRotate } = useFairyTaleEffect();
 
   useEffect(() => {
@@ -411,28 +410,26 @@ const MagicalCard = ({ style, children, noShadow }: MagicalCardProps) => {
     return () => clearInterval(interval);
   }, []);
 
-  const cardStyle = noShadow
-    ? {}
-    : {
-        shadowColor: '#4CAF50',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: glowAnim.interpolate({
+  const cardStyle = {
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: glowAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.1, 0.15],
+    }),
+    shadowRadius: glowAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [8, 12],
+    }),
+    transform: [
+      {
+        rotate: rotateAnim.interpolate({
           inputRange: [0, 1],
-          outputRange: [0.1, 0.15],
+          outputRange: ['0deg', '0.5deg'],
         }),
-        shadowRadius: glowAnim.interpolate({
-          inputRange: [0, 1],
-          outputRange: [8, 12],
-        }),
-        transform: [
-          {
-            rotate: rotateAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: ['0deg', '0.5deg'],
-            }),
-          },
-        ],
-      };
+      },
+    ],
+  };
 
   return <Animated.View style={[style, cardStyle]}>{children}</Animated.View>;
 };
@@ -873,7 +870,7 @@ export default function Savings() {
             </View>
             
             {activeSavingsPlans.length === 0 ? (
-              <MagicalCard style={styles.emptyState} noShadow>
+              <MagicalCard style={styles.emptyState}>
                 <Image 
                   source={require('../../assets/home/save.png')} 
                   style={styles.emptyStateIcon}
@@ -1105,7 +1102,6 @@ const styles = StyleSheet.create({
   balanceCard: {
     borderRadius: 20,
     padding: 24,
-   
   },
   balanceHeader: {
     flexDirection: 'row',

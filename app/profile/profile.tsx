@@ -113,18 +113,49 @@ export default function Profile() {
   const fetchUserProfile = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
+      if (!user) return;
 
-        if (error) throw error;
+      // Try to fetch the profile
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        // If profile doesn't exist, create it
+        if (error.code === 'PGRST116') {
+          const { data: newProfile, error: createError } = await supabase
+            .from('profiles')
+            .insert([
+              {
+                id: user.id,
+                full_name: user.user_metadata?.full_name || '',
+                email: user.email,
+                phone_number: user.user_metadata?.phone_number || '',
+              }
+            ])
+            .select()
+            .single();
+
+          if (createError) throw createError;
+          setUserProfile(newProfile);
+        } else {
+          throw error;
+        }
+      } else {
         setUserProfile(profile);
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
+      Toast.show({
+        type: 'error',
+        text1: t('common.error'),
+        text2: t('common.profileError'),
+        position: 'top',
+        visibilityTime: 3000,
+        autoHide: true,
+      });
     } finally {
       setLoading(false);
     }

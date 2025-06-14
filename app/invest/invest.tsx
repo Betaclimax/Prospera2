@@ -197,27 +197,34 @@ export default function Invest() {
             </View>
 
             <View style={styles.portfolioCard}>
-              <View style={styles.portfolioHeader}>
-                <View>
-                  <Text style={styles.portfolioLabel}>{t('common.totalPortfolio')}</Text>
-                  <Text style={styles.portfolioAmount}>${maturedSavings.toFixed(2)}</Text>
+              <LinearGradient
+                colors={['#E3F2FD', '#BBDEFB']}
+                style={styles.portfolioGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <View style={styles.portfolioHeader}>
+                  <View>
+                    <Text style={styles.portfolioLabel}>{t('common.totalPortfolio')}</Text>
+                    <Text style={styles.portfolioAmount}>${maturedSavings.toFixed(2)}</Text>
+                  </View>
+                  <View style={styles.portfolioTrend}>
+                    <Ionicons name="trending-up" size={20} color="#1976D2" />
+                    <Text style={styles.trendText}>+2.5% {t('common.thisMonth')}</Text>
+                  </View>
                 </View>
-                <View style={styles.portfolioTrend}>
-                  <Ionicons name="trending-up" size={20} color="#4CAF50" />
-                  <Text style={styles.trendText}>+2.5% {t('common.thisMonth')}</Text>
+                <View style={styles.portfolioStats}>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statValue}>${(maturedSavings * 0.4).toFixed(2)}</Text>
+                    <Text style={styles.statLabel}>{t('common.available')}</Text>
                   </View>
+                  <View style={styles.statDivider} />
+                  <View style={styles.statItem}>
+                    <Text style={styles.statValue}>${(maturedSavings * 0.6).toFixed(2)}</Text>
+                    <Text style={styles.statLabel}>{t('common.invested')}</Text>
                   </View>
-              <View style={styles.portfolioStats}>
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>${(maturedSavings * 0.4).toFixed(2)}</Text>
-                  <Text style={styles.statLabel}>{t('common.available')}</Text>
-                  </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>${(maturedSavings * 0.6).toFixed(2)}</Text>
-                  <Text style={styles.statLabel}>{t('common.invested')}</Text>
                 </View>
-              </View>
+              </LinearGradient>
             </View>
 
             <View style={styles.quickActions}>
@@ -225,32 +232,29 @@ export default function Invest() {
                 style={styles.actionButton}
                 onPress={() => setShowInvestmentModal(true)}
               >
-                <LinearGradient
-                  colors={['#1976D2', '#1565C0']}
-                  style={styles.actionGradient}
-                >
-                  <Ionicons name="add-circle-outline" size={24} color="#fff" />
-                </LinearGradient>
+                <Image 
+                  source={require('../../assets/home/investment.png')} 
+                  style={styles.actionImage}
+                  resizeMode="contain"
+                />
                 <Text style={styles.actionText}>{t('common.newInvestment')}</Text>
               </TouchableOpacity>
               
               <TouchableOpacity style={styles.actionButton}>
-                <LinearGradient
-                  colors={['#4CAF50', '#43A047']}
-                  style={styles.actionGradient}
-                >
-                  <Ionicons name="analytics-outline" size={24} color="#fff" />
-                </LinearGradient>
+                <Image 
+                  source={require('../../assets/home/analytics.png')} 
+                  style={styles.actionImage}
+                  resizeMode="contain"
+                />
                 <Text style={styles.actionText}>{t('common.analytics')}</Text>
               </TouchableOpacity>
               
               <TouchableOpacity style={styles.actionButton}>
-                <LinearGradient
-                  colors={['#FF9800', '#FB8C00']}
-                  style={styles.actionGradient}
-                >
-                  <Ionicons name="document-text-outline" size={24} color="#fff" />
-                </LinearGradient>
+                <Image 
+                  source={require('../../assets/home/reports.png')} 
+                  style={styles.actionImage}
+                  resizeMode="contain"
+                />
                 <Text style={styles.actionText}>{t('common.reports')}</Text>
               </TouchableOpacity>
             </View>
@@ -336,18 +340,25 @@ export default function Invest() {
 
               {investments.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <Image 
-                    source={require('../../assets/home/invest2.png')} 
-                    style={styles.emptyStateIcon}
-                  />
-                  <Text style={styles.emptyStateText}>{t('common.noInvestments')}</Text>
-                  <Text style={styles.emptyStateSubtext}>{t('common.startInvesting')}</Text>
-                  <TouchableOpacity 
-                    style={styles.emptyStateButton}
-                    onPress={() => setShowInvestmentModal(true)}
+                  <LinearGradient
+                    colors={['#E3F2FD', '#BBDEFB']}
+                    style={styles.emptyStateGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
                   >
-                    <Text style={styles.emptyStateButtonText}>{t('common.startNow')}</Text>
-                  </TouchableOpacity>
+                    <Image 
+                      source={require('../../assets/home/invest2.png')} 
+                      style={styles.emptyStateIcon}
+                    />
+                    <Text style={styles.emptyStateText}>{t('common.noInvestments')}</Text>
+                    <Text style={styles.emptyStateSubtext}>{t('common.startInvesting')}</Text>
+                    <TouchableOpacity 
+                      style={styles.emptyStateButton}
+                      onPress={() => setShowInvestmentModal(true)}
+                    >
+                      <Text style={styles.emptyStateButtonText}>{t('common.startNow')}</Text>
+                    </TouchableOpacity>
+                  </LinearGradient>
                 </View>
               ) : (
                 investments.map(renderInvestment)
@@ -532,7 +543,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 32,
     fontFamily: 'Satoshi',
-    color: '#1976D2',
+    color: '#000',
     fontWeight: 'bold',
   },
   notificationButton: {
@@ -551,14 +562,17 @@ const styles = StyleSheet.create({
   portfolioCard: {
     margin: 24,
     marginTop: 0,
-    backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    padding: 24,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
     elevation: 8,
+  },
+  portfolioGradient: {
+    padding: 24,
+    backgroundColor: '#FFFFFF',
   },
   portfolioHeader: {
     flexDirection: 'row',
@@ -568,7 +582,7 @@ const styles = StyleSheet.create({
   },
   portfolioLabel: {
     fontSize: 16,
-    color: '#666',
+    color: '#1976D2',
     fontFamily: 'Satoshi',
     marginBottom: 8,
   },
@@ -581,14 +595,14 @@ const styles = StyleSheet.create({
   portfolioTrend: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E3F2FD',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
   },
   trendText: {
     fontSize: 14,
-    color: '#4CAF50',
+    color: '#1976D2',
     fontFamily: 'Satoshi',
     marginLeft: 4,
     fontWeight: '600',
@@ -603,21 +617,22 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 24,
-    color: '#000',
+    color: '#1976D2',
     fontFamily: 'Satoshi',
     fontWeight: 'bold',
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 14,
-    color: '#666',
+    color: '#1976D2',
     fontFamily: 'Satoshi',
   },
   statDivider: {
     width: 1,
     height: 40,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: '#1976D2',
     marginHorizontal: 24,
+    opacity: 0.3,
   },
   quickActions: {
     flexDirection: 'row',
@@ -629,20 +644,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '30%',
   },
-  actionGradient: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
+  actionImage: {
+    width: 32,
+    height: 32,
     marginBottom: 8,
   },
   actionText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#000',
     fontFamily: 'Satoshi',
     textAlign: 'center',
-    fontWeight: '600',
   },
   opportunitiesSection: {
     marginBottom: 24,
@@ -687,6 +698,7 @@ const styles = StyleSheet.create({
   },
   opportunityGradient: {
     padding: 20,
+    backgroundColor: '#FFFFFF',
   },
   opportunityHeader: {
     flexDirection: 'row',
@@ -745,7 +757,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
@@ -754,6 +766,7 @@ const styles = StyleSheet.create({
   },
   cardGradient: {
     padding: 24,
+    backgroundColor: '#FFFFFF',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -771,6 +784,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
+    backgroundColor: '#1976D2',
   },
   statusText: {
     color: '#fff',
@@ -807,34 +821,39 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   emptyState: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    marginTop: 16,
+  },
+  emptyStateGradient: {
     alignItems: 'center',
     padding: 40,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    borderRadius: 20,
-    marginTop: 16,
   },
   emptyStateIcon: {
     width: 64,
     height: 64,
     marginBottom: 16,
-    opacity: 0.5,
+    opacity: 0.7,
+    tintColor: '#1976D2',
   },
   emptyStateText: {
     fontSize: 18,
-    color: '#000',
-    fontFamily: 'Poppins',
+    color: '#1976D2',
+    fontFamily: 'Satoshi',
     textAlign: 'center',
     marginBottom: 8,
+    fontWeight: 'bold',
   },
   emptyStateSubtext: {
     fontSize: 14,
-    color: '#666',
-    fontFamily: 'Poppins',
+    color: '#1976D2',
+    fontFamily: 'Satoshi',
     textAlign: 'center',
     marginBottom: 24,
+    opacity: 0.7,
   },
   emptyStateButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#1976D2',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 12,
@@ -881,7 +900,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   modalButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#1976D2',
     paddingHorizontal: 32,
     paddingVertical: 12,
     borderRadius: 12,
@@ -1004,7 +1023,7 @@ menuText: {
     paddingVertical: 16,
   },
   calculationCard: {
-    backgroundColor: '#F8F8F8',
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 20,
     marginBottom: 24,
@@ -1022,7 +1041,7 @@ menuText: {
     fontWeight: '600',
   },
   calcPeriod: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E3F2FD',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
@@ -1030,7 +1049,7 @@ menuText: {
   calcPeriodText: {
     fontSize: 14,
     fontFamily: 'Poppins',
-    color: '#4CAF50',
+    color: '#1976D2',
   },
   calcDivider: {
     height: 1,
@@ -1067,7 +1086,7 @@ menuText: {
   },
   calcTotalValue: {
     fontSize: 18,
-    color: '#4CAF50',
+    color: '#1976D2',
     fontFamily: 'Satoshi',
     fontWeight: '600',
   },
@@ -1087,6 +1106,7 @@ menuText: {
   investButtonGradient: {
     padding: 18,
     alignItems: 'center',
+    backgroundColor: '#1976D2',
   },
   investButtonText: {
     color: '#fff',

@@ -121,7 +121,7 @@ export default function Onboarding() {
 
       {/* Illustration Container */}
       <LinearGradient
-        colors={['#4BCFFA', '#54BAB9']}
+        colors={['#2196F3', '#54BAB9']}
         style={styles.illustrationContainer}
         start={{ x: 0, y: 0 }}
         end={{ x: 0.3, y: 0.7 }}
@@ -157,6 +157,7 @@ export default function Onboarding() {
             />
           ))}
         </View>
+        
         <TouchableOpacity onPress={handleNext} style={styles.nextButton}>
           <Animated.Text style={[styles.nextButtonText, { opacity: fadeAnim }]}>
             {t('common.next')}
@@ -232,7 +233,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#4BCFFA',
+    backgroundColor: '#2196F3',
   },
   activeDot: {
     opacity: 1,
@@ -241,7 +242,7 @@ const styles = StyleSheet.create({
     opacity: 0.3,
   },
   nextButton: {
-    backgroundColor: '#4BCFFA',
+    backgroundColor: '#2196F3',
     paddingVertical: 10,
     paddingHorizontal: 25,
     borderRadius: 10,

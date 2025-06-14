@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -185,18 +186,28 @@ export default function Login() {
             onPress={handleLogin}
             disabled={loading}
           >
-            <Animated.Text style={[styles.nextButtonText, { opacity: fadeAnim }]}>
-              {loading ? t('common.signingIn') : t('common.loginButton')}
-            </Animated.Text>
+            <LinearGradient
+              colors={['#2196F3', '#1976D2']}
+              style={styles.buttonGradient}
+            >
+              <Animated.Text style={[styles.nextButtonText, { opacity: fadeAnim }]}>
+                {loading ? t('common.signingIn') : t('common.loginButton')}
+              </Animated.Text>
+            </LinearGradient>
           </TouchableOpacity>
 
           <TouchableOpacity 
             style={styles.nextButton} 
             onPress={handleSignUp}
           >
-            <Animated.Text style={[styles.nextButtonText, { opacity: fadeAnim }]}>
-              {t('common.signUp')}
-            </Animated.Text>
+            <LinearGradient
+              colors={['#2196F3', '#1976D2']}
+              style={styles.buttonGradient}
+            >
+              <Animated.Text style={[styles.nextButtonText, { opacity: fadeAnim }]}>
+                {t('common.signUp')}
+              </Animated.Text>
+            </LinearGradient>
           </TouchableOpacity>
         </View>
       </View>
@@ -298,21 +309,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center', 
     alignItems: 'center', 
-    backgroundColor: '#4BCFFA',
-    paddingVertical: 15,
     width: '48%',
     borderRadius: 10,
     marginBottom: 20,
+    overflow: 'hidden',
+  },
+  buttonGradient: {
+    width: '100%',
+    paddingVertical: 15,
+    alignItems: 'center',
   },
   nextButtonText: {
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: 'bold',
     fontFamily: 'Satoshi',
-  },
-  arrow: {
-    color: '#FFFFFF',
-    fontSize: 18,
   },
   disabledButton: {
     opacity: 0.7,

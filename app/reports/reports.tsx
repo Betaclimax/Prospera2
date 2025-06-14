@@ -1,172 +1,160 @@
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BarChart, LineChart } from 'react-native-chart-kit';
 
 const { width } = Dimensions.get('window');
+
+// Mock data for charts
+const transactionData = {
+  labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+  datasets: [
+    {
+      data: [1200, 1500, 1800, 2100, 2400, 2700],
+      color: (opacity = 1) => `rgba(25, 118, 210, ${opacity})`,
+      strokeWidth: 2,
+    },
+  ],
+};
+
+const investmentData = {
+  labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+  datasets: [
+    {
+      data: [5000, 6000, 7000, 8000, 9000, 10000],
+    },
+  ],
+};
+
+const chartConfig = {
+  backgroundGradientFrom: '#FFFFFF',
+  backgroundGradientTo: '#FFFFFF',
+  color: (opacity = 1) => `rgba(25, 118, 210, ${opacity})`,
+  strokeWidth: 2,
+  barPercentage: 0.5,
+  useShadowColorFromDataset: false,
+  decimalPlaces: 0,
+  formatYLabel: (value: string) => `$${value}`,
+  propsForDots: {
+    r: '6',
+    strokeWidth: '2',
+    stroke: '#1976D2'
+  },
+  propsForBackgroundLines: {
+    strokeDasharray: '', 
+    stroke: 'rgba(0, 0, 0, 0.1)',
+    strokeWidth: 1,
+  },
+  propsForLabels: {
+    fontSize: 12,
+    fontFamily: 'Satoshi',
+  }
+};
 
 export default function Reports() {
   const router = useRouter();
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState('transactions');
-  const [dateRange, setDateRange] = useState('1M');
-  const [showExportModal, setShowExportModal] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState('6M');
+  const [selectedReport, setSelectedReport] = useState('savings');
 
-  const mockTransactions = [
-    {
-      id: 1,
-      type: 'deposit',
-      amount: 1000,
-      date: '2024-03-15',
-      status: 'completed',
-      description: 'weeklyDeposit'
-    },
-    {
-      id: 2,
-      type: 'withdrawal',
-      amount: 500,
-      date: '2024-03-10',
-      status: 'completed',
-      description: 'emergencyWithdrawal'
-    },
-    {
-      id: 3,
-      type: 'investment',
-      amount: 2000,
-      date: '2024-03-05',
-      status: 'completed',
-      description: 'investmentFund'
-    }
-  ];
+  const goHome = () => router.push('../home/home');
+  const goInvest = () => router.push('../invest/invest');
+  const goInbox = () => router.push('../inbox/inbox');
+  const goProfile = () => router.push('../profile/profile');
 
-  const mockSavingsReports = [
-    {
-      id: 1,
-      planName: t('common.emergencyFund'),
-      startDate: '2024-01-01',
-      endDate: '2024-03-15',
-      totalSaved: 5000,
-      interestEarned: 250,
-      status: 'active'
-    },
-    {
-      id: 2,
-      planName: t('common.vacationFund'),
-      startDate: '2024-02-01',
-      endDate: '2024-04-01',
-      totalSaved: 3000,
-      interestEarned: 150,
-      status: 'completed'
-    }
-  ];
-
-  const mockInvestmentReports = [
-    {
-      id: 1,
-      fundName: t('common.growthFund'),
-      investedAmount: 5000,
-      currentValue: 5500,
-      return: 10,
-      startDate: '2024-01-01',
-      status: 'active'
-    },
-    {
-      id: 2,
-      fundName: t('common.incomeFund'),
-      investedAmount: 3000,
-      currentValue: 3150,
-      return: 5,
-      startDate: '2024-02-01',
-      status: 'active'
-    }
-  ];
-
-  const renderTransactionItem = (transaction: any) => (
-    <View style={styles.reportItem}>
-      <View style={styles.reportItemHeader}>
-        <View style={styles.reportItemTitle}>
-          <Ionicons 
-            name={transaction.type === 'deposit' ? 'arrow-down' : 'arrow-up'} 
-            size={24} 
-            color={transaction.type === 'deposit' ? '#4CAF50' : '#FF5252'} 
-          />
-          <Text style={styles.reportItemName}>{t(`common.descriptions.${transaction.description}`)}</Text>
-        </View>
-        <Text style={[
-          styles.reportItemAmount,
-          { color: transaction.type === 'deposit' ? '#4CAF50' : '#FF5252' }
-        ]}>
-          {transaction.type === 'deposit' ? '+' : '-'}${transaction.amount}
+  const renderReportSelector = () => (
+    <View style={styles.reportSelector}>
+      <TouchableOpacity
+        style={[
+          styles.reportButton,
+          selectedReport === 'savings' && styles.selectedReport,
+        ]}
+        onPress={() => setSelectedReport('savings')}
+      >
+        <Ionicons 
+          name="wallet-outline" 
+          size={20} 
+          color={selectedReport === 'savings' ? '#FFFFFF' : '#1976D2'} 
+        />
+        <Text
+          style={[
+            styles.reportButtonText,
+            selectedReport === 'savings' && styles.selectedReportText,
+          ]}
+        >
+          {t('common.savings')}
         </Text>
-      </View>
-      <View style={styles.reportItemDetails}>
-        <Text style={styles.reportItemDate}>{transaction.date}</Text>
-        <View style={[
-          styles.statusBadge,
-          { backgroundColor: transaction.status === 'completed' ? '#4CAF50' : '#FFA000' }
-        ]}>
-          <Text style={styles.statusText}>{t(`common.statusR.${transaction.status}`)}</Text>
-        </View>
-      </View>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[
+          styles.reportButton,
+          selectedReport === 'investments' && styles.selectedReport,
+        ]}
+        onPress={() => setSelectedReport('investments')}
+      >
+        <Ionicons 
+          name="trending-up" 
+          size={20} 
+          color={selectedReport === 'investments' ? '#FFFFFF' : '#1976D2'} 
+        />
+        <Text
+          style={[
+            styles.reportButtonText,
+            selectedReport === 'investments' && styles.selectedReportText,
+          ]}
+        >
+          {t('common.investments')}
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 
-  const renderSavingsReport = (report: any) => (
-    <View style={styles.reportItem}>
-      <View style={styles.reportItemHeader}>
-        <View style={styles.reportItemTitle}>
-          <Ionicons name="wallet-outline" size={24} color="#2196F3" />
-          <Text style={styles.reportItemName}>{report.planName}</Text>
-        </View>
-        <Text style={styles.reportItemAmount}>${report.totalSaved}</Text>
-      </View>
-      <View style={styles.reportItemDetails}>
-        <Text style={styles.reportItemDate}>
-          {report.startDate} - {report.endDate}
-        </Text>
-        <View style={styles.interestBadge}>
-          <Text style={styles.interestText}>
-            +${report.interestEarned} {t('common.interest')}
+  const renderPeriodSelector = () => (
+    <View style={styles.periodSelector}>
+      {['1M', '3M', '6M', '1Y', 'ALL'].map((period) => (
+        <TouchableOpacity
+          key={period}
+          style={[
+            styles.periodButton,
+            selectedPeriod === period && styles.selectedPeriod,
+          ]}
+          onPress={() => setSelectedPeriod(period)}
+        >
+          <Text
+            style={[
+              styles.periodText,
+              selectedPeriod === period && styles.selectedPeriodText,
+            ]}
+          >
+            {period}
           </Text>
-        </View>
-      </View>
+        </TouchableOpacity>
+      ))}
     </View>
   );
 
-  const renderInvestmentReport = (report: any) => (
-    <View style={styles.reportItem}>
-      <View style={styles.reportItemHeader}>
-        <View style={styles.reportItemTitle}>
-          <Ionicons name="trending-up" size={24} color="#4CAF50" />
-          <Text style={styles.reportItemName}>{report.fundName}</Text>
-        </View>
-        <Text style={styles.reportItemAmount}>${report.currentValue}</Text>
-      </View>
-      <View style={styles.reportItemDetails}>
-        <Text style={styles.reportItemDate}>{report.startDate}</Text>
-        <View style={[
-          styles.returnBadge,
-          { backgroundColor: report.return >= 0 ? '#4CAF50' : '#FF5252' }
-        ]}>
-          <Text style={styles.returnText}>
-            {report.return >= 0 ? '+' : ''}{report.return}%
-          </Text>
-        </View>
+  const renderExportOptions = () => (
+    <View style={styles.exportContainer}>
+      <Text style={styles.exportTitle}>{t('common.exportReport')}</Text>
+      <View style={styles.exportButtons}>
+        <TouchableOpacity style={styles.exportButton}>
+          <Ionicons name="document-text" size={24} color="#1976D2" />
+          <Text style={styles.exportButtonText}>PDF</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.exportButton}>
+          <Ionicons name="grid-outline" size={24} color="#1976D2" />
+          <Text style={styles.exportButtonText}>CSV</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
 
   return (
     <View style={styles.container}>
-      <Image
-        source={require('../../assets/home/background3.png')}
-        style={styles.backgroundImage}
-        resizeMode="cover"
-      />
-
-      <ScrollView style={styles.scrollView}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <View style={styles.headerLeft}>
@@ -174,85 +162,131 @@ export default function Reports() {
                 style={styles.backButton}
                 onPress={() => router.back()}
               >
-                <Ionicons name="chevron-back" size={30} color="#000" />
+                <Ionicons name="chevron-back" size={24} color="#000" />
               </TouchableOpacity>
               <Text style={styles.headerTitle}>{t('common.titleR')}</Text>
             </View>
-            <TouchableOpacity 
-              style={styles.exportButton}
-              onPress={() => setShowExportModal(true)}
-            >
-              <Ionicons name="download-outline" size={24} color="#000" />
+            <TouchableOpacity style={styles.notificationButton}>
+              <Ionicons name="notifications-outline" size={24} color="#1976D2" />
             </TouchableOpacity>
           </View>
         </View>
 
-        <View style={styles.tabContainer}>
-          {['transactions', 'savings', 'investments'].map((tab) => (
-            <TouchableOpacity
-              key={tab}
-              style={[styles.tab, activeTab === tab && styles.activeTab]}
-              onPress={() => setActiveTab(tab)}
-            >
-              <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
-                {t(`common.${tab}`)}
+        {renderReportSelector()}
+        {renderPeriodSelector()}
+
+        <View style={styles.statsContainer}>
+          <LinearGradient
+            colors={['#E3F2FD', '#BBDEFB']}
+            style={styles.statCard}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <View style={styles.statHeader}>
+              <Text style={styles.statLabel}>
+                {selectedReport === 'savings' ? t('common.totalSaved') : t('common.totalInvested')}
               </Text>
-            </TouchableOpacity>
-          ))}
+              <Ionicons name="trending-up" size={20} color="#1976D2" />
+            </View>
+            <Text style={styles.statValue}>
+              ${selectedReport === 'savings' ? '12,500' : '25,000'}
+            </Text>
+            <Text style={styles.statChange}>+15% {t('common.vsLastMonth')}</Text>
+          </LinearGradient>
+
+          <LinearGradient
+            colors={['#E3F2FD', '#BBDEFB']}
+            style={styles.statCard}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <View style={styles.statHeader}>
+              <Text style={styles.statLabel}>
+                {selectedReport === 'savings' ? t('common.projectedGrowth') : t('common.totalReturn')}
+              </Text>
+              <Ionicons name="wallet-outline" size={20} color="#1976D2" />
+            </View>
+            <Text style={styles.statValue}>
+              ${selectedReport === 'savings' ? '15,000' : '2,500'}
+            </Text>
+            <Text style={styles.statChange}>+8% {t('common.vsLastMonth')}</Text>
+          </LinearGradient>
         </View>
 
-        <View style={styles.dateRangeContainer}>
-          {['1W', '1M', '3M', '6M', '1Y', 'ALL'].map((range) => (
-            <TouchableOpacity
-              key={range}
-              style={[styles.dateRangeButton, dateRange === range && styles.activeDateRange]}
-              onPress={() => setDateRange(range)}
-            >
-              <Text style={[styles.dateRangeText, dateRange === range && styles.activeDateRangeText]}>
-                {t(`common.dateRange.${range}`)}
-              </Text>
-            </TouchableOpacity>
-          ))}
+        <View style={styles.chartContainer}>
+          <View style={styles.chartHeader}>
+            <Text style={styles.chartTitle}>
+              {selectedReport === 'savings' ? t('common.savingsTrend') : t('common.investmentGrowth')}
+            </Text>
+          </View>
+          <View style={styles.chartWrapper}>
+            {selectedReport === 'savings' ? (
+              <LineChart
+                data={transactionData}
+                width={width - 48}
+                height={220}
+                chartConfig={chartConfig}
+                bezier
+                style={styles.chart}
+                withInnerLines={true}
+                withOuterLines={true}
+                withVerticalLines={false}
+                withHorizontalLines={true}
+                withVerticalLabels={true}
+                withHorizontalLabels={true}
+                fromZero={true}
+              />
+            ) : (
+              <BarChart
+                data={investmentData}
+                width={width - 48}
+                height={220}
+                chartConfig={chartConfig}
+                style={styles.chart}
+                showValuesOnTopOfBars
+                yAxisLabel=""
+                yAxisSuffix=""
+                withVerticalLabels={true}
+                withHorizontalLabels={true}
+                fromZero={true}
+              />
+            )}
+          </View>
         </View>
 
-        <View style={styles.reportsContainer}>
-          {activeTab === 'transactions' && mockTransactions.map(renderTransactionItem)}
-          {activeTab === 'savings' && mockSavingsReports.map(renderSavingsReport)}
-          {activeTab === 'investments' && mockInvestmentReports.map(renderInvestmentReport)}
-        </View>
+        {renderExportOptions()}
       </ScrollView>
 
-      <Modal
-        visible={showExportModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowExportModal(false)}
-      >
-        <BlurView intensity={20} style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{t('common.exportReport')}</Text>
-              <TouchableOpacity onPress={() => setShowExportModal(false)}>
-                <Ionicons name="close" size={24} color="#666" />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.exportOptions}>
-              <TouchableOpacity style={styles.exportOption}>
-                <Ionicons name="document-text-outline" size={24} color="#4CAF50" />
-                <Text style={styles.exportOptionText}>{t('common.pdf')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.exportOption}>
-                <Ionicons name="document-outline" size={24} color="#2196F3" />
-                <Text style={styles.exportOptionText}>{t('common.csv')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.exportOption}>
-                <Ionicons name="mail-outline" size={24} color="#FF9800" />
-                <Text style={styles.exportOptionText}>{t('common.email')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </BlurView>
-      </Modal>
+      <View style={styles.bottomMenuContainer}>
+        <View style={styles.menuPartLeft}>
+          <TouchableOpacity style={styles.menuItem} onPress={goHome}>
+            <Image source={require('../../assets/home/home2.png')} style={{ width: 24, height: 24 }} />
+            <Text style={styles.menuText}>{t('common.home')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem} onPress={goInvest}>
+            <Image source={require('../../assets/home/invest2.png')} style={{ width: 24, height: 24 }} />
+            <Text style={styles.menuText}>{t('common.invest')}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.investButtonWrapper}>
+          <TouchableOpacity style={styles.investButton} onPress={goInvest}>
+            <Image source={require('../../assets/home/save.png')} style={{ width: 32, height: 32 }} />
+            <Text style={styles.investText}>{t('common.save')}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.menuPartRight}>
+          <TouchableOpacity style={styles.menuItem} onPress={goInbox}>
+            <Image source={require('../../assets/home/bell2.png')} style={{ width: 19, height: 24 }} />
+            <Text style={styles.menuText}>{t('common.inbox')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem} onPress={goProfile}>
+            <Image source={require('../../assets/home/profile2.png')} style={{ width: 19, height: 24 }} />
+            <Text style={styles.menuText}>{t('common.profile')}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </View>
   );
 }
@@ -260,13 +294,7 @@ export default function Reports() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f2f2f2',
-  },
-  backgroundImage: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    opacity: 0.9,
+    backgroundColor: '#FFFFFF',
   },
   scrollView: {
     flex: 1,
@@ -287,8 +315,16 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 32,
     fontFamily: 'Satoshi',
-    color: '#000',
+    color: '#000000',
     fontWeight: 'bold',
+  },
+  notificationButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E3F2FD',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   backButton: {
     width: 40,
@@ -298,168 +334,222 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
-  exportButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  tabContainer: {
+  reportSelector: {
     flexDirection: 'row',
     paddingHorizontal: 24,
     marginBottom: 24,
   },
-  tab: {
+  reportButton: {
     flex: 1,
-    paddingVertical: 12,
+    flexDirection: 'row',
     alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginHorizontal: 8,
+    borderRadius: 20,
+    backgroundColor: '#E3F2FD',
   },
-  activeTab: {
-    borderBottomColor: '#FFF',
+  selectedReport: {
+    backgroundColor: '#1976D2',
   },
-  tabText: {
-    fontSize: 16,
-    fontFamily: 'Poppins',
-    color: '#FFF',
+  reportButtonText: {
+    marginLeft: 8,
+    fontSize: 14,
+    fontFamily: 'Satoshi',
+    color: '#1976D2',
   },
-  activeTabText: {
-    color: '#FFF',
+  selectedReportText: {
+    color: '#FFFFFF',
     fontWeight: '600',
   },
-  dateRangeContainer: {
+  periodSelector: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 24,
     marginBottom: 24,
   },
-  dateRangeButton: {
+  periodButton: {
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: '#E3F2FD',
   },
-  activeDateRange: {
-    backgroundColor: '#4CAF50',
+  selectedPeriod: {
+    backgroundColor: '#1976D2',
   },
-  dateRangeText: {
-    color: '#000',
+  periodText: {
+    color: '#000000',
     fontSize: 14,
-    fontFamily: 'Poppins',
+    fontFamily: 'Satoshi',
   },
-  activeDateRangeText: {
+  selectedPeriodText: {
+    color: '#FFFFFF',
     fontWeight: '600',
   },
-  reportsContainer: {
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     paddingHorizontal: 24,
+    marginBottom: 24,
   },
-  reportItem: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+  statCard: {
+    flex: 1,
+    borderRadius: 20,
+    padding: 20,
+    marginHorizontal: 8,
   },
-  reportItemHeader: {
+  statHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
   },
-  reportItemTitle: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  statLabel: {
+    color: '#000000',
+    fontSize: 14,
+    fontFamily: 'Satoshi',
+    opacity: 0.8,
   },
-  reportItemName: {
-    fontSize: 16,
-    fontFamily: 'Poppins',
-    color: '#000',
-    marginLeft: 12,
-  },
-  reportItemAmount: {
-    fontSize: 18,
+  statValue: {
+    color: '#000000',
+    fontSize: 28,
     fontFamily: 'Satoshi',
     fontWeight: 'bold',
+    marginBottom: 8,
   },
-  reportItemDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  reportItemDate: {
-    fontSize: 14,
-    fontFamily: 'Poppins',
-    color: '#000',
-    opacity: 0.7,
-  },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    color: '#000',
+  statChange: {
+    color: '#1976D2',
     fontSize: 12,
-    fontFamily: 'Poppins',
+    fontFamily: 'Satoshi',
+    opacity: 0.8,
   },
-  interestBadge: {
-    backgroundColor: '#2196F3',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  interestText: {
-    color: '#FFF',
-    fontSize: 12,
-    fontFamily: 'Poppins',
-  },
-  returnBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  returnText: {
-    color: '#FFF',
-    fontSize: 12,
-    fontFamily: 'Poppins',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    width: '90%',
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 24,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  chartContainer: {
+    marginHorizontal: 24,
     marginBottom: 24,
   },
-  modalTitle: {
-    fontSize: 20,
-    fontFamily: 'Satoshi',
-    fontWeight: 'bold',
-    color: '#000',
+  chartHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  exportOptions: {
+  chartTitle: {
+    color: '#000000',
+    fontSize: 18,
+    fontFamily: 'Satoshi',
+    fontWeight: '600',
+  },
+  chartWrapper: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  chart: {
+    marginVertical: 8,
+    borderRadius: 16,
+  },
+  exportContainer: {
+    marginHorizontal: 24,
+    marginBottom: 104,
+    padding: 20,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 20,
+  },
+  exportTitle: {
+    fontSize: 16,
+    fontFamily: 'Satoshi',
+    color: '#000000',
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  exportButtons: {
     flexDirection: 'row',
     justifyContent: 'space-around',
   },
-  exportOption: {
+  exportButton: {
     alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    width: '45%',
   },
-  exportOptionText: {
+  exportButtonText: {
     marginTop: 8,
     fontSize: 14,
-    fontFamily: 'Poppins',
-    color: '#666',
+    fontFamily: 'Satoshi',
+    color: '#1976D2',
+    fontWeight: '600',
+  },
+  bottomMenuContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    width: '100%',
+    position: 'absolute',
+    bottom: 0,
+    backgroundColor: 'transparent',
+    zIndex: 10,
+  },
+  menuPartLeft: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 14,
+    paddingHorizontal: 35,
+    borderTopRightRadius: 70,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  menuPartRight: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 14,
+    paddingHorizontal: 33,
+    borderTopLeftRadius: 70,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  investButtonWrapper: {
+    position: 'absolute',
+    left: '50%',
+    bottom: 15,
+    transform: [{ translateX: -40 }],
+    zIndex: 20,
+  },
+  investButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 48,
+    width: 80,
+    height: 80,
+  },
+  investText: {
+    color: '#000000',
+    fontSize: 14,
+    fontFamily: 'Satoshi',
+    marginTop: 2,
+  },
+  menuItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 8,
+  },
+  menuText: {
+    fontSize: 14,
+    fontFamily: 'Satoshi',
+    color: '#000000',
+    marginTop: 4,
   },
 }); 

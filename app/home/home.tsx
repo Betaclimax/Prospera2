@@ -396,18 +396,18 @@ export default function Home() {
                     style={styles.quickActionButton} 
                     onPress={() => {
                       setShowQuickActions(false);
-                      setShowQuickActions(true);
+                      router.push('../achievements/achievements');
                     }}
                   >
                     <LinearGradient
                       colors={['#FF9800', '#F57C00']}
                       style={styles.actionGradient}
                     >
-                      <Ionicons name="add-circle-outline" size={24} color="#fff" />
+                      <Ionicons name="trophy-outline" size={24} color="#fff" />
                     </LinearGradient>
-                    <Text style={styles.quickActionText}>{t('common.new')}</Text>
-            </TouchableOpacity>
-          </View>
+                    <Text style={styles.quickActionText}>{t('common.achievements')}</Text>
+                  </TouchableOpacity>
+                </View>
               </TouchableOpacity>
             </Modal>
 
@@ -504,7 +504,7 @@ export default function Home() {
 
                 <TouchableOpacity 
                   style={styles.walletActionButton} 
-                  onPress={() => setShowSendModal(true)}
+                  onPress={() => router.push('../send/send')}
                 >
                   <Image 
                     source={require('../../assets/home/send.png')} 
@@ -526,12 +526,15 @@ export default function Home() {
                   <Text style={styles.walletActionText}>{t('common.receive')}</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.walletActionButton}>
-          <Image
+                <TouchableOpacity 
+                  style={styles.walletActionButton} 
+                  onPress={() => router.push('../exchange/exchange')}
+                >
+                  <Image 
                     source={require('../../assets/home/exchange.png')} 
                     style={styles.walletActionImage}
-            resizeMode="contain"
-          />
+                    resizeMode="contain"
+                  />
                   <Text style={styles.walletActionText}>{t('common.exchange')}</Text>
                 </TouchableOpacity>
 

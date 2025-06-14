@@ -1,0 +1,59 @@
+{
+  "analytics": {
+    "title": "Analytics",
+    "totalSaved": "Total Saved",
+    "activePlans": "Active Plans",
+    "vsLastMonth": "vs last month",
+    "savingsTrend": "Savings Trend",
+    "monthlyComparison": "Monthly Comparison",
+    "insights": "Insights",
+    "insight1": "Your savings have increased by 15% compared to last month. Keep up the good work!",
+    "insight2": "You're on track to reach your savings goal by the end of this month."
+  },
+  "reports": {
+    "title": "Reports",
+    "transactions": "Transactions",
+    "savings": "Savings",
+    "investments": "Investments",
+    "exportReport": "Export Report",
+    "email": "Email",
+    "interest": "interest",
+    "download": "Download",
+    "pdf": "PDF",
+    "csv": "CSV",
+    "dateRange": {
+      "1W": "1W",
+      "1M": "1M",
+      "3M": "3M",
+      "6M": "6M",
+      "1Y": "1Y",
+      "ALL": "ALL"
+    },
+    "status": {
+      "completed": "Completed",
+      "active": "Active",
+      "pending": "Pending"
+    },
+    "transactionTypes": {
+      "deposit": "Deposit",
+      "withdrawal": "Withdrawal",
+      "investment": "Investment"
+    },
+    "descriptions": {
+      "weeklyDeposit": "Weekly savings deposit",
+      "emergencyWithdrawal": "Emergency withdrawal",
+      "investmentFund": "Investment in Prospera Fund"
+    }
+  },
+  "common": {
+    "insight1": "Market Trends",
+    "insight1Desc": "The market is showing positive trends with a 15% increase in investment opportunities.",
+    "insight2": "Savings Growth",
+    "insight2Desc": "Your savings have grown by 8% this month. Keep up the good work!",
+    "insight3": "Security Update",
+    "insight3Desc": "New security features have been added to protect your investments.",
+    "insight4": "Investment Analytics",
+    "insight4Desc": "Your portfolio performance is above market average. View detailed analytics.",
+    "learnMore": "Learn More"
+  }
+} 

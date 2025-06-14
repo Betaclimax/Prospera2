@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -336,7 +337,6 @@ export default function signup() {
         });
       }
     } catch (error: any) {
-      console.error('Error:', error);
       Toast.show({
         type: 'error',
         text1: t('common.error'),
@@ -508,9 +508,14 @@ export default function signup() {
           onPress={handleNext}
           disabled={loading}
         >
-          <Text style={styles.nextButtonText}>
-            {loading ? t('common.creatingAccount') : t('common.signUpButton')}
-          </Text>
+          <LinearGradient
+            colors={['#2196F3', '#1976D2']}
+            style={styles.buttonGradient}
+          >
+            <Text style={styles.nextButtonText}>
+              {loading ? t('common.creatingAccount') : t('common.signUpButton')}
+            </Text>
+          </LinearGradient>
         </TouchableOpacity>
       </View>
     </View>
@@ -616,12 +621,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center', 
     alignItems: 'center', 
-    backgroundColor: '#4BCFFA',
-    paddingVertical: 15,
     width: '100%',
     borderRadius: 10,
     marginBottom: 20,
-    marginTop: '2%'
+    marginTop: '2%',
+    overflow: 'hidden',
+  },
+  buttonGradient: {
+    width: '100%',
+    paddingVertical: 15,
+    alignItems: 'center',
   },
   nextButtonText: {
     color: '#FFFFFF',
