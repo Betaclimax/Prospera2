@@ -10,7 +10,7 @@ export default {
     home: "Inicio",
     invest: "Invertir",
     inbox: "Bandeja",
-    profile: "Perfil!",
+    profile: "Perfil!!!",
      "fixedTermSavings": {
       "title": "AHORROS A PLAZO FIJO",
       "description": "Establece metas de ahorro claras con plazos de 10 o 20 semanas. Nuestro enfoque estructurado te ayuda a mantener la disciplina y alcanzar tus objetivos más rápido."
