@@ -373,7 +373,20 @@ export default {
     "comparisonGrowthInsight": "Your monthly savings are trending upward, showing a 20% improvement compared to the previous period. This suggests effective financial planning.",
     "savingsPeriodInsight": "The 6-month period shows a positive trend with increasing savings amounts. Your highest savings were recorded in June.",
     "comparisonPeriodInsight": "Monthly comparisons reveal a steady increase in savings capacity. You're consistently saving more than the previous month.",
-    "back": "Back"
+    "back": "Back",
+    "transactionFailed": "Transaction Failed",
+    "failedToConnectBank": "Failed to Connect Bank",
+    "transactions": "Transactions",
+    "failedToConnectCard": "Failed to Connect Card",
+    "savingsPlanCreated": "Savings Created",
+    "verifyBankAccount": "Verify Bank Account",
+    "noTransactions": "No Transactions",
+    "statusP": {
+      "completed": "Completed"
+    },
+    "removePaymentMethod": "Remove Payment Method",
+    "removePaymentMethodConfirm": "Remove Payment Method Confirm",
+    "cardDetails": "Card Details"
   },
  
   

@@ -10,7 +10,7 @@ export default {
     home: "Inicio",
     invest: "Invertir",
     inbox: "Bandeja",
-    profile: "Perfil!!!",
+    profile: "Perfil",
      "fixedTermSavings": {
       "title": "AHORROS A PLAZO FIJO",
       "description": "Establece metas de ahorro claras con plazos de 10 o 20 semanas. Nuestro enfoque estructurado te ayuda a mantener la disciplina y alcanzar tus objetivos más rápido."
@@ -374,6 +374,19 @@ export default {
     "noPurchasesToday": "No hagas ninguna compra hoy",
     "roundUpThreePurchases": "Redondea 3 compras al dólar más cercano",
     "completeDailyQuiz": "Completa el cuestionario financiero de hoy",
+    "transactionFailed": "Transacción fallida",
+    "failedToConnectBank": "Error al conectar con el banco",
+    "transactions": "Transacciones",
+    "failedToConnectCard": "Error al conectar la tarjeta",
+    "savingsPlanCreated": "Ahorros creados",
+    "verifyBankAccount": "Verificar cuenta bancaria",
+    "noTransactions": "Sin transacciones",
+    "statusP": {
+      "completed": "Completada"
+    },
+    "removePaymentMethod": "Eliminar método de pago",
+    "removePaymentMethodConfirm": "Confirmar método de pago",
+    "cardDetails": "Datos de la tarjeta"
   },
   
 }; 

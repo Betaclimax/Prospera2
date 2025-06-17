@@ -7,6 +7,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Animated, Dimensions, Easing, FlatList, Image, ImageBackground, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { supabase } from '../../lib/supabase';
 import ConnectBankAccount from '../components/ConnectBankAccount';
 import ConnectDebitCard from '../components/ConnectDebitCard';
 import PaymentService, { PaymentMethod } from '../services/payment';
@@ -47,6 +48,13 @@ type SavingsPlan = {
   duration: number;
   startDate: string;
   maturityDate: string;
+  paymentMethod?: {
+    id: string;
+    stripe_payment_method_id: string;
+    last4: string;
+    bank_name?: string;
+    account_type?: string;
+  };
 };
 
 type Investment = {
@@ -481,6 +489,8 @@ export default function Savings() {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
   const [showConnectCard, setShowConnectCard] = useState(false);
   const [selectedBackground, setSelectedBackground] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [transactions, setTransactions] = useState<any[]>([]);
 
   useEffect(() => {
     Animated.sequence([
@@ -499,8 +509,11 @@ export default function Savings() {
 
   useEffect(() => {
     const paymentService = PaymentService.getInstance();
-    const methods = paymentService.getPaymentMethods();
-    setPaymentMethods(methods);
+    const loadMethods = async () => {
+      const methods = await paymentService.getPaymentMethods();
+      setPaymentMethods(methods);
+    };
+    loadMethods();
   }, []);
 
   useEffect(() => {
@@ -509,13 +522,37 @@ export default function Savings() {
       
       if (params.selectedMethodId) {
         const paymentService = PaymentService.getInstance();
-        const methods = paymentService.getPaymentMethods();
-        setPaymentMethods(methods);
+        const loadMethods = async () => {
+          const methods = await paymentService.getPaymentMethods();
+          setPaymentMethods(methods);
+        };
+        loadMethods();
         
         setSelectedPaymentMethod(params.selectedMethodId as string);
       }
     }
-  }, [params.openModal, params.selectedMethodId]);
+
+    // Handle return from bank verification
+    if (params.verified === 'true' && params.paymentMethodId && params.depositAmount && params.savingsDuration) {
+      const startDate = new Date();
+      const maturityDate = new Date(startDate);
+      maturityDate.setDate(startDate.getDate() + Number(params.savingsDuration) * 7);
+      
+      const newPlan = {
+        id: Date.now(),
+        amount: Number(params.depositAmount),
+        originalAmount: Number(params.depositAmount),
+        fee: Number(params.depositAmount) * TRANSACTION_FEE,
+        duration: Number(params.savingsDuration),
+        startDate: startDate.toISOString(),
+        maturityDate: maturityDate.toISOString(),
+      };
+
+      setActiveSavingsPlans([...activeSavingsPlans, newPlan]);
+      setDepositAmount('');
+      setModalVisible(false);
+    }
+  }, [params.openModal, params.selectedMethodId, params.verified, params.paymentMethodId, params.depositAmount, params.savingsDuration]);
 
   useEffect(() => {
     loadSavedBackground();
@@ -593,44 +630,162 @@ export default function Savings() {
   }, [activeSavingsPlans, maturedPlans]);
 
   const startSavingsPlan = async () => {
-    if (!depositAmount || isNaN(Number(depositAmount)) || Number(depositAmount) <= 0) {
-      Alert.alert(t('common.invalidAmount'), t('common.enterValidAmount'));
-      return;
-    }
-
-    if (!selectedPaymentMethod) {
-      Alert.alert(t('common.error'), t('common.selectPaymentMethod'));
-      return;
-    }
-
     try {
-      const paymentService = PaymentService.getInstance();
-      const transaction = await paymentService.processDeposit(
-        Number(depositAmount),
-        selectedPaymentMethod
-      );
+      if (!depositAmount || isNaN(Number(depositAmount)) || Number(depositAmount) <= 0) {
+        Alert.alert(t('common.error'), t('common.enterValidAmount'));
+        return;
+      }
 
-      if (transaction.status === 'completed') {
-        const startDate = new Date();
-        const maturityDate = new Date(startDate);
-        maturityDate.setDate(startDate.getDate() + savingsDuration * 7);
-        
-        const newPlan = {
-          id: Date.now(),
-          amount: transaction.netAmount,
-          originalAmount: transaction.amount,
-          fee: transaction.fee,
+      if (!selectedPaymentMethod) {
+        Alert.alert(t('common.error'), t('common.selectPaymentMethod'));
+        return;
+      }
+
+      setIsLoading(true);
+
+      const selectedMethod = paymentMethods.find(method => method.id === selectedPaymentMethod);
+      if (!selectedMethod) {
+        throw new Error('Selected payment method not found');
+      }
+
+      // If it's a bank account that requires verification
+      if (selectedMethod.type === 'bank_account' && !selectedMethod.is_verified) {
+        setModalVisible(false);
+        router.push({
+          pathname: '../payments/verify-bank',
+          params: {
+            paymentMethodId: selectedMethod.id,
+            customerId: selectedMethod.customerId,
+            verificationAmounts: selectedMethod.verificationAmounts,
+            depositAmount: depositAmount,
+            savingsDuration: savingsDuration,
+          }
+        });
+        return;
+      }
+
+      // First, check if payment method exists in Supabase
+      let { data: paymentMethodData, error: paymentMethodError } = await supabase
+        .from('payment_methods')
+        .select('id')
+        .eq('stripe_payment_method_id', selectedMethod.id)
+        .single();
+
+      // If payment method doesn't exist, create it
+      if (paymentMethodError || !paymentMethodData) {
+        const { data: newPaymentMethod, error: createError } = await supabase
+          .from('payment_methods')
+          .insert({
+            user_id: user.id,
+            type: selectedMethod.type,
+            stripe_payment_method_id: selectedMethod.id,
+            stripe_customer_id: selectedMethod.customerId,
+            last4: selectedMethod.last4,
+            bank_name: selectedMethod.bankAccount?.bankName,
+            account_type: selectedMethod.bankAccount?.accountType,
+            is_default: selectedMethod.isDefault,
+            is_verified: selectedMethod.is_verified
+          })
+          .select()
+          .single();
+
+        if (createError) throw createError;
+        if (!newPaymentMethod) throw new Error('Failed to create payment method');
+        paymentMethodData = newPaymentMethod;
+      }
+
+      if (!paymentMethodData) {
+        throw new Error('Payment method not found or created');
+      }
+
+      // Process the deposit
+      const response = await fetch('http://localhost:3000/api/process-deposit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await AsyncStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          amount: parseFloat(depositAmount),
+          paymentMethodId: selectedMethod.id,
+          customerId: selectedMethod.customerId,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to process deposit');
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Create new savings plan in Supabase
+        const { data: savingsPlan, error: savingsError } = await supabase
+          .from('savings_plans')
+          .insert({
+            user_id: user.id,
+            amount: parseFloat(depositAmount),
+            original_amount: parseFloat(depositAmount),
+            fee: TRANSACTION_FEE,
+            duration: savingsDuration,
+            start_date: new Date().toISOString(),
+            maturity_date: new Date(Date.now() + savingsDuration * 24 * 60 * 60 * 1000).toISOString(),
+            status: 'active',
+            payment_method_id: paymentMethodData.id
+          })
+          .select()
+          .single();
+
+        if (savingsError) throw savingsError;
+
+        // Create transaction record in Supabase
+        const { error: transactionError } = await supabase
+          .from('transactions')
+          .insert({
+            user_id: user.id,
+            payment_method_id: paymentMethodData.id,
+            type: 'deposit',
+            amount: parseFloat(depositAmount),
+            fee: TRANSACTION_FEE,
+            status: 'completed',
+            savings_plan_id: savingsPlan.id
+          });
+
+        if (transactionError) throw transactionError;
+
+        // Update local state
+        const newPlan: SavingsPlan = {
+          id: savingsPlan.id,
+          amount: parseFloat(depositAmount),
+          originalAmount: parseFloat(depositAmount),
+          fee: TRANSACTION_FEE,
           duration: savingsDuration,
-          startDate: startDate.toISOString(),
-          maturityDate: maturityDate.toISOString(),
+          startDate: new Date().toISOString(),
+          maturityDate: new Date(Date.now() + savingsDuration * 24 * 60 * 60 * 1000).toISOString(),
         };
 
-        setActiveSavingsPlans([...activeSavingsPlans, newPlan]);
-        setDepositAmount('');
+        setActiveSavingsPlans(prev => [...prev, newPlan]);
         setModalVisible(false);
+        setDepositAmount('');
+        setSavingsDuration(30);
+        setSelectedPaymentMethod(null);
+
+        Alert.alert(
+          t('common.success'),
+          t('common.savingsPlanCreated'),
+          [{ text: 'OK' }]
+        );
       }
-    } catch (error) {
-      Alert.alert(t('common.error'), t('common.transactionFailed'));
+    } catch (error: any) {
+      console.error('Error starting savings plan:', error);
+      Alert.alert(
+        t('common.error'),
+        error.message || t('common.savingsPlanFailed'),
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -782,6 +937,119 @@ export default function Savings() {
   };
 
   const weekOptions = Array.from({ length: 11 }, (_, i) => 10 + i); 
+
+  const loadUser = async () => {
+    try {
+      const userJson = await AsyncStorage.getItem('user');
+      if (userJson) {
+        const userData = JSON.parse(userJson);
+        setUser(userData);
+      }
+    } catch (error) {
+      console.error('Error loading user:', error);
+    }
+  };
+
+  const loadPaymentMethods = async () => {
+    const paymentService = PaymentService.getInstance();
+    const methods = await paymentService.getPaymentMethods();
+    setPaymentMethods(methods);
+  };
+
+  const loadTransactions = async () => {
+    try {
+      const { data: transactionsData, error } = await supabase
+        .from('transactions')
+        .select(`
+          *,
+          payment_method:payment_methods(last4, bank_name)
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+      setTransactions(transactionsData || []);
+    } catch (error) {
+      console.error('Error loading transactions:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadUser();
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      loadPaymentMethods();
+      loadTransactions();
+      loadSavingsPlans();
+    }
+  }, [user]);
+
+  const loadSavingsPlans = async () => {
+    try {
+      const { data: activePlans, error: activeError } = await supabase
+        .from('savings_plans')
+        .select(`
+          *,
+          payment_method:payment_methods(
+            id,
+            stripe_payment_method_id,
+            last4,
+            bank_name,
+            account_type
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+
+      if (activeError) throw activeError;
+
+      const { data: maturedPlans, error: maturedError } = await supabase
+        .from('savings_plans')
+        .select(`
+          *,
+          payment_method:payment_methods(
+            id,
+            stripe_payment_method_id,
+            last4,
+            bank_name,
+            account_type
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('status', 'matured')
+        .order('created_at', { ascending: false });
+
+      if (maturedError) throw maturedError;
+
+      setActiveSavingsPlans(activePlans.map(plan => ({
+        id: plan.id,
+        amount: plan.amount,
+        originalAmount: plan.original_amount,
+        fee: plan.fee,
+        duration: plan.duration,
+        startDate: plan.start_date,
+        maturityDate: plan.maturity_date,
+        paymentMethod: plan.payment_method
+      })));
+
+      setMaturedPlans(maturedPlans.map(plan => ({
+        id: plan.id,
+        amount: plan.amount,
+        originalAmount: plan.original_amount,
+        fee: plan.fee,
+        duration: plan.duration,
+        startDate: plan.start_date,
+        maturityDate: plan.maturity_date,
+        paymentMethod: plan.payment_method
+      })));
+    } catch (error) {
+      console.error('Error loading savings plans:', error);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -1020,10 +1288,9 @@ export default function Savings() {
         <View style={[styles.modalOverlay, { zIndex: 1000 }]}>
           <View style={[styles.bankModalContent, { zIndex: 1001 }]}>
             <ConnectBankAccount
-              onSuccess={() => {
+              onSuccess={async () => {
                 setShowConnectBank(false);
-                const paymentService = PaymentService.getInstance();
-                setPaymentMethods(paymentService.getPaymentMethods());
+                await loadPaymentMethods();
               }}
               onCancel={() => setShowConnectBank(false)}
             />
@@ -1040,10 +1307,9 @@ export default function Savings() {
         <View style={[styles.modalOverlay, { zIndex: 1000 }]}>
           <View style={[styles.bankModalContent, { zIndex: 1001 }]}>
             <ConnectDebitCard
-              onSuccess={() => {
+              onSuccess={async () => {
                 setShowConnectCard(false);
-                const paymentService = PaymentService.getInstance();
-                setPaymentMethods(paymentService.getPaymentMethods());
+                await loadPaymentMethods();
               }}
               onCancel={() => setShowConnectCard(false)}
             />

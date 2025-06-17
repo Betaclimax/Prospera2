@@ -51,12 +51,20 @@ interface UserProfile {
   email: string;
 }
 
+interface SavingsPlan {
+  id: string;
+  user_id: string;
+  amount: number;
+  status: string;
+}
+
 export default function Home() {
   const router = useRouter();
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('Save');
   const [activeSplashIndex, setActiveSplashIndex] = useState(0);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [totalSaved, setTotalSaved] = useState(0);
   const flatListRef = useRef<FlatList<any>>(null);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -76,6 +84,7 @@ export default function Home() {
   useEffect(() => {
     fetchUserProfile();
     loadSavedBackground();
+    fetchTotalSavings();
   }, []);
 
   const fetchUserProfile = async () => {
@@ -90,6 +99,8 @@ export default function Home() {
 
         if (error) throw error;
         setUserProfile(profile);
+        // Fetch total savings after getting user profile
+        fetchTotalSavings();
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -106,6 +117,56 @@ export default function Home() {
       console.error('Error loading background:', error);
     }
   };
+
+  const fetchTotalSavings = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: savingsPlans, error } = await supabase
+        .from('savings_plans')
+        .select('amount')
+        .eq('user_id', user.id)
+        .eq('status', 'active');
+
+      if (error) throw error;
+
+      const total = savingsPlans?.reduce((sum, plan) => sum + plan.amount, 0) || 0;
+      setTotalSaved(total);
+    } catch (error) {
+      console.error('Error fetching total savings:', error);
+    }
+  };
+
+  // Add subscription to savings_plans changes
+  useEffect(() => {
+    const setupSubscription = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const subscription = supabase
+        .channel('savings_plans_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'savings_plans',
+            filter: `user_id=eq.${user.id}`
+          },
+          () => {
+            fetchTotalSavings();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        subscription.unsubscribe();
+      };
+    };
+
+    setupSubscription();
+  }, []);
 
   const getUserInitials = () => {
     if (!userProfile?.full_name) return 'U';
@@ -146,7 +207,7 @@ export default function Home() {
       const nextIndex = (activeSplashIndex + 1) % splashImages.length;
       setActiveSplashIndex(nextIndex);
       flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
-    }, 3000); 
+    }, 3000);
     return () => clearInterval(interval);
   }, [activeSplashIndex]);
 
@@ -164,7 +225,7 @@ export default function Home() {
 
   // Savings Progress Data
   const totalWeeks = 10;
-  const currentWeek = 6; 
+  const currentWeek = 6;
   const progressPercentage = (currentWeek / totalWeeks) * 100;
 
   // Animation for fairy tale effect (glowing)
@@ -215,7 +276,7 @@ export default function Home() {
         useNativeDriver: true,
       }).start();
     }
-    
+
     setShowQuickActions(!showQuickActions);
   };
 
@@ -302,342 +363,342 @@ export default function Home() {
         style={styles.backgroundImage}
         resizeMode="cover"
       >
-          {/* Magic Button - Fixed Position */}
-          <View style={styles.magicButtonWrapper}>
-            <Animated.View style={[
-              styles.magicButtonContainer,
-              { transform: [{ scale: scaleAnim }] }
-            ]}>
-              <TouchableOpacity 
-                style={styles.magicButton}
-                onPress={handleQuickActionPress}
-              >
+        {/* Magic Button - Fixed Position */}
+        <View style={styles.magicButtonWrapper}>
+          <Animated.View style={[
+            styles.magicButtonContainer,
+            { transform: [{ scale: scaleAnim }] }
+          ]}>
+            <TouchableOpacity
+              style={styles.magicButton}
+              onPress={handleQuickActionPress}
+            >
               <LinearGradient
-                  colors={['#E3F2FD', '#BBDEFB']}
-                  style={styles.magicButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <Animated.View style={{ transform: [{ rotate: spin }] }}>
-                    <Ionicons name="sparkles" size={20} color="#1976D2" />
-                  </Animated.View>
-                </LinearGradient>
-              </TouchableOpacity>
-            </Animated.View>
-          </View>
-
-      <ScrollView style={styles.mainContent} contentContainerStyle={styles.scrollContent}>
-        {/* Welcome Section */}
-        <View style={styles.welcomeSection}>
-          <View style={styles.welcomeHeader}>
-                <TouchableOpacity onPress={goProfile}>
-                  <View style={styles.userIcon}>
-                    <Image 
-                      source={require('../../assets/home/logo.png')} 
-                      style={styles.appLogo}
-                      resizeMode="contain"
-                    />
-                  </View>
-                </TouchableOpacity>
-                <View>
-            <Text style={styles.welcomeText}>
-              {t('common.welcome')} {userProfile?.full_name || ''}
-            </Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Quick Actions Modal */}
-            <Modal
-              visible={showQuickActions}
-              transparent={true}
-              animationType="fade"
-              onRequestClose={() => setShowQuickActions(false)}
-            >
-              <TouchableOpacity 
-                style={styles.modalOverlay}
-                activeOpacity={1}
-                onPress={() => setShowQuickActions(false)}
+                colors={['#E3F2FD', '#BBDEFB']}
+                style={styles.magicButtonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
               >
-                <View style={styles.quickActionsModal}>
-                  <TouchableOpacity 
-                    style={styles.quickActionButton} 
-                    onPress={() => {
-                      setShowQuickActions(false);
-                      goAnalytics();
-                    }}
-                  >
-                    <LinearGradient
-                      colors={['#4CAF50', '#45a049']}
-                      style={styles.actionGradient}
-                    >
-                      <Ionicons name="analytics-outline" size={24} color="#fff" />
-                    </LinearGradient>
-                    <Text style={styles.quickActionText}>{t('common.analytics')}</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    style={styles.quickActionButton} 
-                    onPress={() => {
-                      setShowQuickActions(false);
-                      goReports();
-                    }}
-                  >
-                    <LinearGradient
-                      colors={['#2196F3', '#1976D2']}
-                      style={styles.actionGradient}
-                    >
-                      <Ionicons name="document-text-outline" size={24} color="#fff" />
-                    </LinearGradient>
-                    <Text style={styles.quickActionText}>{t('common.reports')}</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    style={styles.quickActionButton} 
-                    onPress={() => {
-                      setShowQuickActions(false);
-                      router.push('../achievements/achievements');
-                    }}
-                  >
-                    <LinearGradient
-                      colors={['#FF9800', '#F57C00']}
-                      style={styles.actionGradient}
-                    >
-                      <Ionicons name="trophy-outline" size={24} color="#fff" />
-                    </LinearGradient>
-                    <Text style={styles.quickActionText}>{t('common.achievements')}</Text>
-                  </TouchableOpacity>
-                </View>
-              </TouchableOpacity>
-            </Modal>
-
-        {/* Splash Images Section */}
-        <View style={styles.splashSection}>
-          <View style={styles.dotsContainer}>
-            {splashImages.map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.dot,
-                  activeSplashIndex === index && styles.activeDot,
-                ]}
-              />
-            ))}
-          </View>
-          <FlatList
-            ref={flatListRef}
-            data={splashImages}
-            renderItem={renderSplashItem}
-            keyExtractor={(item, index) => index.toString()}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onScroll={handleSplashScroll}
-            snapToInterval={width}
-            decelerationRate="fast"
-          />
+                <Animated.View style={{ transform: [{ rotate: spin }] }}>
+                  <Ionicons name="sparkles" size={20} color="#1976D2" />
+                </Animated.View>
+              </LinearGradient>
+            </TouchableOpacity>
+          </Animated.View>
         </View>
 
-            {/* Total Balance Section */}
-            <LinearGradient
-              colors={['#E3F2FD', '#BBDEFB']} 
-              style={styles.balanceSection}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+        <ScrollView style={styles.mainContent} contentContainerStyle={styles.scrollContent}>
+          {/* Welcome Section */}
+          <View style={styles.welcomeSection}>
+            <View style={styles.welcomeHeader}>
+              <TouchableOpacity onPress={goProfile}>
+                <View style={styles.userIcon}>
+                  <Image
+                    source={require('../../assets/home/logo.png')}
+                    style={styles.appLogo}
+                    resizeMode="contain"
+                  />
+                </View>
+              </TouchableOpacity>
+              <View>
+                <Text style={styles.welcomeText}>
+                  {t('common.welcome')} {userProfile?.full_name || ''}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Quick Actions Modal */}
+          <Modal
+            visible={showQuickActions}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={() => setShowQuickActions(false)}
+          >
+            <TouchableOpacity
+              style={styles.modalOverlay}
+              activeOpacity={1}
+              onPress={() => setShowQuickActions(false)}
             >
-              <View style={styles.balanceContent}>
-                <View style={styles.balanceInfo}>
-                  <View style={styles.balanceHeader}>
-                    <Text style={styles.sectionTitle}>
-                      {activeTab === 'Save' ? t('common.totalSaved') : t('common.totalInvested')}
-                    </Text>
-                    <View style={styles.cardIcons}>
-                      <Image source={require('../../assets/home/gold.png')} style={styles.cardIcon} />
-                    </View>
-                  </View>
-                  <Text style={styles.balanceAmount}>
-                    {activeTab === 'Save' ? '$2,000' : '$5,000'}
+              <View style={styles.quickActionsModal}>
+                <TouchableOpacity
+                  style={styles.quickActionButton}
+                  onPress={() => {
+                    setShowQuickActions(false);
+                    goAnalytics();
+                  }}
+                >
+                  <LinearGradient
+                    colors={['#4CAF50', '#45a049']}
+                    style={styles.actionGradient}
+                  >
+                    <Ionicons name="analytics-outline" size={24} color="#fff" />
+                  </LinearGradient>
+                  <Text style={styles.quickActionText}>{t('common.analytics')}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.quickActionButton}
+                  onPress={() => {
+                    setShowQuickActions(false);
+                    goReports();
+                  }}
+                >
+                  <LinearGradient
+                    colors={['#2196F3', '#1976D2']}
+                    style={styles.actionGradient}
+                  >
+                    <Ionicons name="document-text-outline" size={24} color="#fff" />
+                  </LinearGradient>
+                  <Text style={styles.quickActionText}>{t('common.reports')}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.quickActionButton}
+                  onPress={() => {
+                    setShowQuickActions(false);
+                    router.push('../achievements/achievements');
+                  }}
+                >
+                  <LinearGradient
+                    colors={['#FF9800', '#F57C00']}
+                    style={styles.actionGradient}
+                  >
+                    <Ionicons name="trophy-outline" size={24} color="#fff" />
+                  </LinearGradient>
+                  <Text style={styles.quickActionText}>{t('common.achievements')}</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          </Modal>
+
+          {/* Splash Images Section */}
+          <View style={styles.splashSection}>
+            <View style={styles.dotsContainer}>
+              {splashImages.map((_, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.dot,
+                    activeSplashIndex === index && styles.activeDot,
+                  ]}
+                />
+              ))}
+            </View>
+            <FlatList
+              ref={flatListRef}
+              data={splashImages}
+              renderItem={renderSplashItem}
+              keyExtractor={(item, index) => index.toString()}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onScroll={handleSplashScroll}
+              snapToInterval={width}
+              decelerationRate="fast"
+            />
+          </View>
+
+          {/* Total Balance Section */}
+          <LinearGradient
+            colors={['#E3F2FD', '#BBDEFB']}
+            style={styles.balanceSection}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <View style={styles.balanceContent}>
+              <View style={styles.balanceInfo}>
+                <View style={styles.balanceHeader}>
+                  <Text style={styles.sectionTitle}>
+                    {activeTab === 'Save' ? t('common.totalSaved') : t('common.totalInvested')}
                   </Text>
+                  <View style={styles.cardIcons}>
+                    <Image source={require('../../assets/home/gold.png')} style={styles.cardIcon} />
+                  </View>
                 </View>
-                
-                <View style={styles.balanceActions}>
-          <TouchableOpacity
-                    style={[styles.balanceActionButton, activeTab === 'Save' && styles.activeBalanceAction]}
-            onPress={() => setActiveTab('Save')}
-          >
-                    <Text style={[styles.balanceActionText, activeTab === 'Save' && styles.activeBalanceActionText]}>
-              {t('common.save')}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-                    style={[styles.balanceActionButton, activeTab === 'Invest' && styles.activeBalanceAction]}
-            onPress={() => setActiveTab('Invest')}
-          >
-                    <Text style={[styles.balanceActionText, activeTab === 'Invest' && styles.activeBalanceActionText]}>
-              {t('common.invest')}
-            </Text>
-          </TouchableOpacity>
-        </View>
-            </View>
-            </LinearGradient>
+                <Text style={styles.balanceAmount}>
+                  {activeTab === 'Save' ? `$${totalSaved.toLocaleString()}` : '$5,000'}
+                </Text>
+              </View>
 
-            {/* Wallet Actions */}
-            <View style={styles.walletActions}>
-              <View style={styles.walletActionsGrid}>
-                <TouchableOpacity style={styles.walletActionButton} onPress={gosavings}>
-                  <Image 
-                    source={require('../../assets/home/save.png')} 
-                    style={styles.walletActionImage}
-                    resizeMode="contain"
-                  />
-                  <Text style={styles.walletActionText}>{t('common.save')}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.walletActionButton} onPress={goInvest}>
-                  <Image 
-                    source={require('../../assets/home/investment.png')} 
-                    style={styles.walletActionImage}
-                    resizeMode="contain"
-                  />
-                  <Text style={styles.walletActionText}>{t('common.invest')}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                  style={styles.walletActionButton} 
-                  onPress={() => router.push('../send/send')}
+              <View style={styles.balanceActions}>
+                <TouchableOpacity
+                  style={[styles.balanceActionButton, activeTab === 'Save' && styles.activeBalanceAction]}
+                  onPress={() => setActiveTab('Save')}
                 >
-                  <Image 
-                    source={require('../../assets/home/send.png')} 
-                    style={styles.walletActionImage}
-                    resizeMode="contain"
-                  />
-                  <Text style={styles.walletActionText}>{t('common.send')}</Text>
+                  <Text style={[styles.balanceActionText, activeTab === 'Save' && styles.activeBalanceActionText]}>
+                    {t('common.save')}
+                  </Text>
                 </TouchableOpacity>
-
-                <TouchableOpacity 
-                  style={styles.walletActionButton} 
-                  onPress={() => setShowReceiveModal(true)}
+                <TouchableOpacity
+                  style={[styles.balanceActionButton, activeTab === 'Invest' && styles.activeBalanceAction]}
+                  onPress={() => setActiveTab('Invest')}
                 >
-                  <Image 
-                    source={require('../../assets/home/receive.png')} 
-                    style={styles.walletActionImage}
-                    resizeMode="contain"
-                  />
-                  <Text style={styles.walletActionText}>{t('common.receive')}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                  style={styles.walletActionButton} 
-                  onPress={() => router.push('../exchange/exchange')}
-                >
-                  <Image 
-                    source={require('../../assets/home/exchange.png')} 
-                    style={styles.walletActionImage}
-                    resizeMode="contain"
-                  />
-                  <Text style={styles.walletActionText}>{t('common.exchange')}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.walletActionButton}>
-                  <Image 
-                    source={require('../../assets/home/cards.png')} 
-                    style={styles.walletActionImage}
-                    resizeMode="contain"
-                  />
-                  <Text style={styles.walletActionText}>{t('common.cards')}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.walletActionButton}>
-                  <Image 
-                    source={require('../../assets/home/analytics.png')} 
-                    style={styles.walletActionImage}
-                    resizeMode="contain"
-                  />
-                  <Text style={styles.walletActionText}>{t('common.analytics')}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.walletActionButton}>
-                  <Image 
-                    source={require('../../assets/home/reports.png')} 
-                    style={styles.walletActionImage}
-                    resizeMode="contain"
-                  />
-                  <Text style={styles.walletActionText}>{t('common.reports')}</Text>
+                  <Text style={[styles.balanceActionText, activeTab === 'Invest' && styles.activeBalanceActionText]}>
+                    {t('common.invest')}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
+          </LinearGradient>
 
-            {/* Insights Section */}
-            <View style={styles.insightsSection}>
-              <View style={styles.insightsHeader}>
-                <Text style={styles.insightsTitle}>{t('common.insights')}</Text>
-                <TouchableOpacity onPress={() => router.push('../insights/insights')}>
-                  <Text style={styles.viewAllText}>{t('common.viewAll')}</Text>
-                </TouchableOpacity>
-              </View>
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.insightsScrollContent}
+          {/* Wallet Actions */}
+          <View style={styles.walletActions}>
+            <View style={styles.walletActionsGrid}>
+              <TouchableOpacity style={styles.walletActionButton} onPress={gosavings}>
+                <Image
+                  source={require('../../assets/home/save.png')}
+                  style={styles.walletActionImage}
+                  resizeMode="contain"
+                />
+                <Text style={styles.walletActionText}>{t('common.save')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.walletActionButton} onPress={goInvest}>
+                <Image
+                  source={require('../../assets/home/investment.png')}
+                  style={styles.walletActionImage}
+                  resizeMode="contain"
+                />
+                <Text style={styles.walletActionText}>{t('common.invest')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.walletActionButton}
+                onPress={() => router.push('../send/send')}
               >
-                <View style={styles.insightsCard}>
-                  <Ionicons name="trending-up" size={24} color="#1976D2" />
-                  <View style={styles.insightContent}>
-                    <Text style={styles.insightTitle}>{t('common.insight1')}</Text>
-                    <Text style={styles.insightSubtitle}>{t('common.learnMore')}</Text>
-                  </View>
-                </View>
-                <View style={styles.insightsCard}>
-                  <Ionicons name="wallet-outline" size={24} color="#1976D2" />
-                  <View style={styles.insightContent}>
-                    <Text style={styles.insightTitle}>{t('common.insight2')}</Text>
-                    <Text style={styles.insightSubtitle}>{t('common.learnMore')}</Text>
-                  </View>
-                </View>
-                <View style={styles.insightsCard}>
-                  <Ionicons name="shield-checkmark-outline" size={24} color="#1976D2" />
-                  <View style={styles.insightContent}>
-                    <Text style={styles.insightTitle}>{t('common.insight3')}</Text>
-                    <Text style={styles.insightSubtitle}>{t('common.learnMore')}</Text>
-          </View>
-        </View>
-      </ScrollView>
+                <Image
+                  source={require('../../assets/home/send.png')}
+                  style={styles.walletActionImage}
+                  resizeMode="contain"
+                />
+                <Text style={styles.walletActionText}>{t('common.send')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.walletActionButton}
+                onPress={() => setShowReceiveModal(true)}
+              >
+                <Image
+                  source={require('../../assets/home/receive.png')}
+                  style={styles.walletActionImage}
+                  resizeMode="contain"
+                />
+                <Text style={styles.walletActionText}>{t('common.receive')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.walletActionButton}
+                onPress={() => router.push('../exchange/exchange')}
+              >
+                <Image
+                  source={require('../../assets/home/exchange.png')}
+                  style={styles.walletActionImage}
+                  resizeMode="contain"
+                />
+                <Text style={styles.walletActionText}>{t('common.exchange')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.walletActionButton}>
+                <Image
+                  source={require('../../assets/home/cards.png')}
+                  style={styles.walletActionImage}
+                  resizeMode="contain"
+                />
+                <Text style={styles.walletActionText}>{t('common.cards')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.walletActionButton}>
+                <Image
+                  source={require('../../assets/home/analytics.png')}
+                  style={styles.walletActionImage}
+                  resizeMode="contain"
+                />
+                <Text style={styles.walletActionText}>{t('common.analytics')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.walletActionButton}>
+                <Image
+                  source={require('../../assets/home/reports.png')}
+                  style={styles.walletActionImage}
+                  resizeMode="contain"
+                />
+                <Text style={styles.walletActionText}>{t('common.reports')}</Text>
+              </TouchableOpacity>
             </View>
-          </ScrollView>
+          </View>
+
+          {/* Insights Section */}
+          <View style={styles.insightsSection}>
+            <View style={styles.insightsHeader}>
+              <Text style={styles.insightsTitle}>{t('common.insights')}</Text>
+              <TouchableOpacity onPress={() => router.push('../insights/insights')}>
+                <Text style={styles.viewAllText}>{t('common.viewAll')}</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.insightsScrollContent}
+            >
+              <View style={styles.insightsCard}>
+                <Ionicons name="trending-up" size={24} color="#1976D2" />
+                <View style={styles.insightContent}>
+                  <Text style={styles.insightTitle}>{t('common.insight1')}</Text>
+                  <Text style={styles.insightSubtitle}>{t('common.learnMore')}</Text>
+                </View>
+              </View>
+              <View style={styles.insightsCard}>
+                <Ionicons name="wallet-outline" size={24} color="#1976D2" />
+                <View style={styles.insightContent}>
+                  <Text style={styles.insightTitle}>{t('common.insight2')}</Text>
+                  <Text style={styles.insightSubtitle}>{t('common.learnMore')}</Text>
+                </View>
+              </View>
+              <View style={styles.insightsCard}>
+                <Ionicons name="shield-checkmark-outline" size={24} color="#1976D2" />
+                <View style={styles.insightContent}>
+                  <Text style={styles.insightTitle}>{t('common.insight3')}</Text>
+                  <Text style={styles.insightSubtitle}>{t('common.learnMore')}</Text>
+                </View>
+              </View>
+            </ScrollView>
+          </View>
+        </ScrollView>
       </ImageBackground>
 
       {/* Bottom Menu Bar */}
       <View style={styles.bottomMenuContainer}>
         {/* Left menu part */}
         <View style={styles.menuPartLeft}>
-            <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity style={styles.menuItem}>
             <Image source={require('../../assets/home/home2.png')} style={{ width: 24, height: 24 }} />
             <Text style={styles.menuText}>{t('common.home')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={goInvest}>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem} onPress={goInvest}>
             <Image source={require('../../assets/home/invest2.png')} style={{ width: 24, height: 24 }} />
             <Text style={styles.menuText}>{t('common.invest')}</Text>
-            </TouchableOpacity>
+          </TouchableOpacity>
         </View>
 
         {/* Center Invest button */}
         <View style={styles.investButtonWrapper}>
-            <TouchableOpacity style={styles.investButton} onPress={gosavings}>
+          <TouchableOpacity style={styles.investButton} onPress={gosavings}>
             <Image source={require('../../assets/home/save.png')} style={{ width: 32, height: 32 }} />
             <Text style={styles.investText}>{t('common.save')}</Text>
-            </TouchableOpacity>
+          </TouchableOpacity>
         </View>
 
         {/* Right menu part */}
         <View style={styles.menuPartRight}>
-            <TouchableOpacity style={styles.menuItem} onPress={goInbox}>
+          <TouchableOpacity style={styles.menuItem} onPress={goInbox}>
             <Image source={require('../../assets/home/bell2.png')} style={{ width: 19, height: 24 }} />
             <Text style={styles.menuText}>{t('common.inbox')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={goProfile}>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem} onPress={goProfile}>
             <Image source={require('../../assets/home/profile2.png')} style={{ width: 19, height: 24 }} />
             <Text style={styles.menuText}>{t('common.profile')}</Text>
-            </TouchableOpacity>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -730,8 +791,8 @@ export default function Home() {
                 </View>
               </View>
 
-              <TouchableOpacity 
-                style={styles.sendButton} 
+              <TouchableOpacity
+                style={styles.sendButton}
                 onPress={handleSendMoney}
               >
                 <LinearGradient
@@ -782,7 +843,7 @@ export default function Home() {
               {/* QR Code or Account Details */}
               <View style={styles.formSection}>
                 <View style={styles.tabContainer}>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={[styles.tab, showQRCode && styles.activeTab]}
                     onPress={() => setShowQRCode(true)}
                   >
@@ -790,7 +851,7 @@ export default function Home() {
                       {t('common.qrCode')}
                     </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={[styles.tab, !showQRCode && styles.activeTab]}
                     onPress={() => setShowQRCode(false)}
                   >
@@ -836,13 +897,13 @@ export default function Home() {
                     {paymentLink}
                   </Text>
                   <View style={styles.linkActions}>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       style={styles.linkActionButton}
                       onPress={handleCopyLink}
                     >
                       <Ionicons name="copy-outline" size={20} color="#1976D2" />
                     </TouchableOpacity>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       style={styles.linkActionButton}
                       onPress={handleShareLink}
                     >
@@ -1145,7 +1206,7 @@ const styles = StyleSheet.create({
   },
   walletActionButton: {
     alignItems: 'center',
-    width: (width - 40 - 48) / 4, 
+    width: (width - 40 - 48) / 4,
   },
   walletActionImage: {
     width: 40,
@@ -1213,28 +1274,28 @@ const styles = StyleSheet.create({
 
   // Bottom Menu Bar
   bottomMenuContainer: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  alignItems: 'flex-end',
-  width: '100%',
-  position: 'absolute',
-  bottom: 0,
-  backgroundColor: 'transparent',
-  zIndex: 10,
-},
-menuPartLeft: {
-  flexDirection: 'row',
-  backgroundColor: '#FFFFFF',
-  paddingVertical: 14,
-  paddingHorizontal: 35,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    width: '100%',
+    position: 'absolute',
+    bottom: 0,
+    backgroundColor: 'transparent',
+    zIndex: 10,
+  },
+  menuPartLeft: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 14,
+    paddingHorizontal: 35,
     borderTopRightRadius: 70,
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: -2 },
-  shadowOpacity: 0.1,
-  shadowRadius: 8,
-  elevation: 8,
-},
-menuPartRight: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  menuPartRight: {
     flexDirection: 'row',
     backgroundColor: '#FFFFFF',
     paddingVertical: 14,
@@ -1245,282 +1306,282 @@ menuPartRight: {
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 8,
-},
-investButtonWrapper: {
-  position: 'absolute',
-  left: '50%',
-  bottom: 15,
-  transform: [{ translateX: -40 }],
-  zIndex: 20,
-},
-investButton: {
-  alignItems: 'center',
-  justifyContent: 'center',
-  backgroundColor: '#fff',
-  borderRadius: 48,
-  width: 80,
-  height: 80,
-},
-investText: {
-  color: '#000000',
-  fontSize: 14,
-  fontFamily: 'Satoshi',
-  marginTop: 2,
-},
-menuItem: {
-  alignItems: 'center',
-  justifyContent: 'center',
-  marginHorizontal: 8,
-},
-menuText: {
-  fontSize: 14,
-  fontFamily: 'Satoshi',
-  color: '#000000',
-  marginTop: 4,
-},
-sendForm: {
-  maxHeight: '80%',
-},
-receiveForm: {
-  maxHeight: '80%',
-},
-formSection: {
-  marginBottom: 24,
-},
-inputContainer: {
-  marginBottom: 16,
-},
-inputLabel: {
-  fontSize: 14,
-  color: '#666',
-  marginBottom: 14,
-},
-input: {
-  backgroundColor: '#F5F5F5',
-  borderRadius: 12,
-  padding: 12,
-  fontSize: 16,
-  color: '#000',
-},
-amountContainer: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  backgroundColor: '#F5F5F5',
-  borderRadius: 12,
-  padding: 12,
-},
-currencySymbol: {
-  fontSize: 24,
-  color: '#1976D2',
-  marginRight: 8,
-},
-amountInput: {
-  flex: 1,
-  fontSize: 24,
-  color: '#000',
-  padding: 0,
-},
-noteInput: {
-  height: 80,
-  textAlignVertical: 'top',
-},
-transactionSummary: {
-  backgroundColor: '#F5F5F5',
-  borderRadius: 12,
-  padding: 16,
-  marginBottom: 24,
-},
-summaryRow: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  marginBottom: 12,
-},
-summaryLabel: {
-  fontSize: 14,
-  color: '#666',
-},
-summaryValue: {
-  fontSize: 14,
-  color: '#000',
-  fontWeight: '500',
-},
-summaryDivider: {
-  height: 1,
-  backgroundColor: '#E0E0E0',
-  marginVertical: 12,
-},
-summaryTotal: {
-  fontSize: 16,
-  color: '#1976D2',
-  fontWeight: '600',
-},
-summaryTotalValue: {
-  fontSize: 16,
-  color: '#1976D2',
-  fontWeight: '600',
-},
-sendButton: {
-  borderRadius: 12,
-  overflow: 'hidden',
-  marginBottom: 16,
-},
-sendButtonGradient: {
-  padding: 16,
-  alignItems: 'center',
-},
-sendButtonText: {
-  color: '#FFFFFF',
-  fontSize: 16,
-  fontWeight: 'bold',
-},
-modalContainer: {
-  flex: 1,
-  backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  justifyContent: 'center',
-  alignItems: 'center',
-},
-modalContent: {
-  backgroundColor: '#FFFFFF',
-  padding: 20,
-  borderRadius: 16,
-  width: '80%',
-  maxHeight: '80%',
-},
-modalHeader: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  marginBottom: 20,
-},
-modalTitle: {
-  fontSize: 18,
-  fontFamily: 'Satoshi',
-  fontWeight: '700',
-  color: '#000',
-},
-tabContainer: {
-  flexDirection: 'row',
-  backgroundColor: '#F5F5F5',
-  borderRadius: 12,
-  padding: 4,
-  marginBottom: 16,
-},
-tab: {
-  flex: 1,
-  paddingVertical: 8,
-  paddingHorizontal: 16,
-  borderRadius: 8,
-  alignItems: 'center',
-},
-activeTab: {
-  backgroundColor: '#FFFFFF',
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.1,
-  shadowRadius: 4,
-  elevation: 2,
-},
-tabText: {
-  fontSize: 14,
-  color: '#666',
-},
-activeTabText: {
-  color: '#1976D2',
-  fontWeight: '600',
-},
-qrContainer: {
-  alignItems: 'center',
-  backgroundColor: '#FFFFFF',
-  padding: 24,
-  borderRadius: 12,
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.1,
-  shadowRadius: 4,
-  elevation: 2,
-},
-qrText: {
-  marginTop: 16,
-  fontSize: 14,
-  color: '#666',
-  textAlign: 'center',
-},
-accountDetailsContainer: {
-  backgroundColor: '#FFFFFF',
-  padding: 16,
-  borderRadius: 12,
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.1,
-  shadowRadius: 4,
-  elevation: 2,
-},
-accountDetailRow: {
-  marginBottom: 16,
-},
-accountDetailLabel: {
-  fontSize: 14,
-  color: '#666',
-  marginBottom: 4,
-},
-accountDetailValue: {
-  fontSize: 16,
-  color: '#000',
-  fontWeight: '500',
-},
-linkContainer: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  backgroundColor: '#F5F5F5',
-  borderRadius: 12,
-  padding: 12,
-},
-linkText: {
-  flex: 1,
-  fontSize: 14,
-  color: '#666',
-  marginRight: 8,
-},
-linkActions: {
-  flexDirection: 'row',
-  gap: 8,
-},
-linkActionButton: {
-  padding: 8,
-},
-instructionsContainer: {
-  backgroundColor: '#FFFFFF',
-  padding: 16,
-  borderRadius: 12,
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.1,
-  shadowRadius: 4,
-  elevation: 2,
-},
-instructionStep: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  marginBottom: 16,
-},
-instructionNumber: {
-  width: 24,
-  height: 24,
-  borderRadius: 12,
-  backgroundColor: '#1976D2',
-  justifyContent: 'center',
-  alignItems: 'center',
-  marginRight: 12,
-},
-instructionNumberText: {
-  color: '#FFFFFF',
-  fontSize: 14,
-  fontWeight: 'bold',
-},
-instructionText: {
-  flex: 1,
-  fontSize: 14,
-  color: '#666',
-},
+  },
+  investButtonWrapper: {
+    position: 'absolute',
+    left: '50%',
+    bottom: 15,
+    transform: [{ translateX: -40 }],
+    zIndex: 20,
+  },
+  investButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 48,
+    width: 80,
+    height: 80,
+  },
+  investText: {
+    color: '#000000',
+    fontSize: 14,
+    fontFamily: 'Satoshi',
+    marginTop: 2,
+  },
+  menuItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 8,
+  },
+  menuText: {
+    fontSize: 14,
+    fontFamily: 'Satoshi',
+    color: '#000000',
+    marginTop: 4,
+  },
+  sendForm: {
+    maxHeight: '80%',
+  },
+  receiveForm: {
+    maxHeight: '80%',
+  },
+  formSection: {
+    marginBottom: 24,
+  },
+  inputContainer: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 14,
+  },
+  input: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 16,
+    color: '#000',
+  },
+  amountContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    padding: 12,
+  },
+  currencySymbol: {
+    fontSize: 24,
+    color: '#1976D2',
+    marginRight: 8,
+  },
+  amountInput: {
+    flex: 1,
+    fontSize: 24,
+    color: '#000',
+    padding: 0,
+  },
+  noteInput: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  transactionSummary: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  summaryLabel: {
+    fontSize: 14,
+    color: '#666',
+  },
+  summaryValue: {
+    fontSize: 14,
+    color: '#000',
+    fontWeight: '500',
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: '#E0E0E0',
+    marginVertical: 12,
+  },
+  summaryTotal: {
+    fontSize: 16,
+    color: '#1976D2',
+    fontWeight: '600',
+  },
+  summaryTotalValue: {
+    fontSize: 16,
+    color: '#1976D2',
+    fontWeight: '600',
+  },
+  sendButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  sendButtonGradient: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  sendButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+    borderRadius: 16,
+    width: '80%',
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontFamily: 'Satoshi',
+    fontWeight: '700',
+    color: '#000',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 16,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  activeTab: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  tabText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  activeTabText: {
+    color: '#1976D2',
+    fontWeight: '600',
+  },
+  qrContainer: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 24,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  qrText: {
+    marginTop: 16,
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+  },
+  accountDetailsContainer: {
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  accountDetailRow: {
+    marginBottom: 16,
+  },
+  accountDetailLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+  accountDetailValue: {
+    fontSize: 16,
+    color: '#000',
+    fontWeight: '500',
+  },
+  linkContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    padding: 12,
+  },
+  linkText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#666',
+    marginRight: 8,
+  },
+  linkActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  linkActionButton: {
+    padding: 8,
+  },
+  instructionsContainer: {
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  instructionStep: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  instructionNumber: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#1976D2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  instructionNumberText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  instructionText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#666',
+  },
 });

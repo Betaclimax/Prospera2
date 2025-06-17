@@ -1,9 +1,11 @@
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-
+import { supabase } from '../../lib/supabase';
 
 interface ConnectBankAccountProps {
   onSuccess: (accountDetails: {
@@ -22,42 +24,167 @@ export default function ConnectBankAccount({ onSuccess, onCancel }: ConnectBankA
   const [routingNumber, setRoutingNumber] = useState('');
   const [bankName, setBankName] = useState('');
   const [accountType, setAccountType] = useState<'checking' | 'savings'>('checking');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleConnect = async () => {
     try {
-      if (!accountNumber || !routingNumber || !bankName) {
+      if (!accountNumber || !routingNumber || !bankName || !accountType) {
         Alert.alert(t('common.error'), t('common.fillAllFields'));
         return;
       }
 
-      // Pass the account details to onSuccess
-      onSuccess({
-        accountNumber,
-        routingNumber,
-        accountType,
-        bankName,
+      setIsLoading(true);
+
+      // Get the user from AsyncStorage
+      const userStr = await AsyncStorage.getItem('user');
+      if (!userStr) {
+        throw new Error('User not found');
+      }
+      const user = JSON.parse(userStr);
+
+      // Make API call to create payment method
+      const response = await fetch('http://localhost:3000/api/create-payment-method', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await AsyncStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          type: 'bank_account',
+          bankName,
+          accountType,
+          accountNumber,
+          routingNumber,
+          user,
+        }),
       });
-      
-      // Then navigate to payments page
-      router.push('../payments/payments');
-    } catch (error) {
-      Alert.alert(t('common.error'), t('common.connectionFailed'));
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to connect bank account');
+      }
+
+      const data = await response.json();
+
+      // Store payment method in Supabase
+      const { error: dbError } = await supabase
+        .from('payment_methods')
+        .insert({
+          user_id: user.id,
+          type: 'bank_account',
+          stripe_payment_method_id: data.paymentMethodId,
+          stripe_customer_id: data.customerId,
+          last4: data.last4,
+          bank_name: bankName,
+          account_type: accountType,
+          is_verified: false
+        });
+
+      if (dbError) throw dbError;
+
+      if (data.requiresVerification) {
+        // Show verification message and navigate to verification page
+        Alert.alert(
+          'Verification Required',
+          'Your bank account has been connected and is pending verification. You will receive two small deposits in your account within 1-2 business days. Please verify these amounts to complete the setup.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                // Pass the account details to onSuccess
+                onSuccess({
+                  accountNumber,
+                  routingNumber,
+                  bankName,
+                  accountType,
+                });
+                
+                // Navigate to verification page
+                router.push({
+                  pathname: '../payments/verify-bank',
+                  params: {
+                    paymentMethodId: data.paymentMethodId,
+                    customerId: data.customerId,
+                    verificationAmounts: data.verificationAmounts,
+                  }
+                });
+              }
+            }
+          ]
+        );
+      } else {
+        // Pass the account details to onSuccess
+        onSuccess({
+          accountNumber,
+          routingNumber,
+          bankName,
+          accountType,
+        });
+        
+        // Then navigate to payments page
+        router.push('../payments/payments');
+      }
+    } catch (error: any) {
+      console.error('Bank account connection error:', error);
+      Alert.alert(
+        t('common.error'),
+        error.message || t('common.connectionFailed'),
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{t('common.connectAccount')}</Text>
+      <Text style={styles.title}>{t('common.connectBankAccount')}</Text>
+      <Text style={styles.subtitle}>Connect your bank account to start saving</Text>
       
       <View style={styles.inputContainer}>
         <Text style={styles.label}>{t('common.bankName')}</Text>
-        <TextInput
-          style={styles.input}
-          value={bankName}
-          onChangeText={setBankName}
-          placeholder={t('common.enterBankName')}
-          placeholderTextColor="#999"
-        />
+        <View style={styles.inputWrapper}>
+          <Ionicons name="business-outline" size={24} color="#666" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            value={bankName}
+            onChangeText={setBankName}
+            placeholder={t('common.enterBankName')}
+            placeholderTextColor="#999"
+          />
+        </View>
+      </View>
+
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>{t('common.accountNumber')}</Text>
+        <View style={styles.inputWrapper}>
+          <Ionicons name="card-outline" size={24} color="#666" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            value={accountNumber}
+            onChangeText={setAccountNumber}
+            placeholder={t('common.enterAccountNumber')}
+            placeholderTextColor="#999"
+            keyboardType="numeric"
+            maxLength={17}
+          />
+        </View>
+      </View>
+
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>{t('common.routingNumber')}</Text>
+        <View style={styles.inputWrapper}>
+          <Ionicons name="swap-horizontal-outline" size={24} color="#666" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            value={routingNumber}
+            onChangeText={setRoutingNumber}
+            placeholder={t('common.enterRoutingNumber')}
+            placeholderTextColor="#999"
+            keyboardType="numeric"
+            maxLength={9}
+          />
+        </View>
       </View>
 
       <View style={styles.inputContainer}>
@@ -70,10 +197,14 @@ export default function ConnectBankAccount({ onSuccess, onCancel }: ConnectBankA
             ]}
             onPress={() => setAccountType('checking')}
           >
-            <Text style={[
-              styles.accountTypeText,
-              accountType === 'checking' && styles.selectedAccountTypeText,
-            ]}>{t('common.checking')}</Text>
+            <Text
+              style={[
+                styles.accountTypeText,
+                accountType === 'checking' && styles.selectedAccountTypeText,
+              ]}
+            >
+              {t('common.checking')}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
@@ -82,37 +213,16 @@ export default function ConnectBankAccount({ onSuccess, onCancel }: ConnectBankA
             ]}
             onPress={() => setAccountType('savings')}
           >
-            <Text style={[
-              styles.accountTypeText,
-              accountType === 'savings' && styles.selectedAccountTypeText,
-            ]}>{t('common.savings')}</Text>
+            <Text
+              style={[
+                styles.accountTypeText,
+                accountType === 'savings' && styles.selectedAccountTypeText,
+              ]}
+            >
+              {t('common.savings')}
+            </Text>
           </TouchableOpacity>
         </View>
-      </View>
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>{t('common.accountNumber')}</Text>
-        <TextInput
-          style={styles.input}
-          value={accountNumber}
-          onChangeText={setAccountNumber}
-          placeholder={t('common.enterAccountNumber')}
-          placeholderTextColor="#999"
-          keyboardType="numeric"
-          secureTextEntry
-        />
-      </View>
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>{t('common.routingNumber')}</Text>
-        <TextInput
-          style={styles.input}
-          value={routingNumber}
-          onChangeText={setRoutingNumber}
-          placeholder={t('common.enterRoutingNumber')}
-          placeholderTextColor="#999"
-          keyboardType="numeric"
-        />
       </View>
 
       <View style={styles.buttonContainer}>
@@ -120,14 +230,20 @@ export default function ConnectBankAccount({ onSuccess, onCancel }: ConnectBankA
           <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
         </TouchableOpacity>
         
-        <TouchableOpacity style={styles.connectButton} onPress={handleConnect}>
+        <TouchableOpacity 
+          style={[styles.connectButton, isLoading && styles.disabledButton]} 
+          onPress={handleConnect}
+          disabled={isLoading}
+        >
           <LinearGradient
-            colors={['#4A90E2', '#357ABD']}
+            colors={['#2196F3', '#1976D2']}
             style={styles.gradientButton}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
           >
-            <Text style={styles.connectButtonText}>{t('common.connectAccount')}</Text>
+            <Text style={styles.connectButtonText}>
+              {isLoading ? 'Connecting...' : t('common.connectAccount')}
+            </Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -148,6 +264,19 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
   },
+  subtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  testInfo: {
+    fontSize: 12,
+    color: '#4CAF50',
+    marginBottom: 20,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
   inputContainer: {
     marginBottom: 20,
   },
@@ -156,10 +285,19 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 8,
   },
-  input: {
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 10,
+    paddingHorizontal: 15,
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  input: {
+    flex: 1,
     padding: 15,
     fontSize: 16,
     color: '#333',
@@ -167,6 +305,7 @@ const styles = StyleSheet.create({
   accountTypeContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: 10,
   },
   accountTypeButton: {
     flex: 1,
@@ -174,12 +313,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 10,
-    marginHorizontal: 5,
     alignItems: 'center',
   },
   selectedAccountType: {
-    borderColor: '#4A90E2',
-    backgroundColor: '#4A90E2',
+    borderColor: '#2196F3',
+    backgroundColor: '#2196F3',
   },
   accountTypeText: {
     fontSize: 16,
@@ -210,6 +348,9 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 10,
     overflow: 'hidden',
+  },
+  disabledButton: {
+    opacity: 0.7,
   },
   gradientButton: {
     padding: 16,

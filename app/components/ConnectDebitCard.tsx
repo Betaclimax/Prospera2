@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { supabase } from '../../lib/supabase';
 
 interface ConnectDebitCardProps {
   onSuccess: (cardDetails: {
@@ -22,6 +24,7 @@ export default function ConnectDebitCard({ onSuccess, onCancel }: ConnectDebitCa
   const [expiryDate, setExpiryDate] = useState('');
   const [cvv, setCvv] = useState('');
   const [cardholderName, setCardholderName] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const formatCardNumber = (text: string) => {
     // Remove all non-digit characters
@@ -48,33 +51,53 @@ export default function ConnectDebitCard({ onSuccess, onCancel }: ConnectDebitCa
         return;
       }
 
-      // Validate card number (basic check)
-      if (cardNumber.replace(/\s/g, '').length !== 16) {
-        Alert.alert(t('common.error'), t('common.invalidCardNumber'));
-        return;
+      setIsLoading(true);
+
+      // Get the user from AsyncStorage
+      const userStr = await AsyncStorage.getItem('user');
+      if (!userStr) {
+        throw new Error('User not found');
+      }
+      const user = JSON.parse(userStr);
+
+      // Create payment method
+      const response = await fetch('http://localhost:3000/api/create-payment-method', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await AsyncStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          type: 'debit_card',
+          cardNumber: cardNumber.replace(/\s/g, ''),
+          expiryDate,
+          cvv,
+          cardholderName,
+          user,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to connect debit card');
       }
 
-      // Validate expiry date
-      const [month, year] = expiryDate.split('/');
-      const currentYear = new Date().getFullYear() % 100;
-      const currentMonth = new Date().getMonth() + 1;
-      
-      if (parseInt(month) < 1 || parseInt(month) > 12) {
-        Alert.alert(t('common.error'), t('common.invalidExpiryDate'));
-        return;
-      }
+      const data = await response.json();
 
-      if (parseInt(year) < currentYear || 
-          (parseInt(year) === currentYear && parseInt(month) < currentMonth)) {
-        Alert.alert(t('common.error'), t('common.cardExpired'));
-        return;
-      }
+      // Store payment method in Supabase
+      const { error: dbError } = await supabase
+        .from('payment_methods')
+        .insert({
+          user_id: user.id,
+          type: 'debit_card',
+          stripe_payment_method_id: data.paymentMethodId,
+          stripe_customer_id: data.customerId,
+          last4: data.last4,
+          is_default: true, // Set as default payment method
+          is_verified: true // Debit cards are verified immediately
+        });
 
-      // Validate CVV
-      if (cvv.length < 3 || cvv.length > 4) {
-        Alert.alert(t('common.error'), t('common.invalidCVV'));
-        return;
-      }
+      if (dbError) throw dbError;
 
       // Pass the card details to onSuccess
       onSuccess({
@@ -86,14 +109,22 @@ export default function ConnectDebitCard({ onSuccess, onCancel }: ConnectDebitCa
       
       // Then navigate to payments page
       router.push('../payments/payments');
-    } catch (error) {
-      Alert.alert(t('common.error'), t('common.connectionFailed'));
+    } catch (error: any) {
+      console.error('Card connection error:', error);
+      Alert.alert(
+        t('common.error'),
+        error.message || t('common.connectionFailed'),
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{t('common.connectDebitCard')}</Text>
+      <Text style={styles.subtitle}>Only debit cards are accepted. Credit cards are not allowed.</Text>
       
       <View style={styles.inputContainer}>
         <Text style={styles.label}>{t('common.cardNumber')}</Text>
@@ -157,14 +188,20 @@ export default function ConnectDebitCard({ onSuccess, onCancel }: ConnectDebitCa
           <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
         </TouchableOpacity>
         
-        <TouchableOpacity style={styles.connectButton} onPress={handleConnect}>
+        <TouchableOpacity 
+          style={[styles.connectButton, isLoading && styles.disabledButton]} 
+          onPress={handleConnect}
+          disabled={isLoading}
+        >
           <LinearGradient
-            colors={['#4CAF50', '#45a049']}
+            colors={['#2196F3', '#1976D2']}
             style={styles.gradientButton}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
           >
-            <Text style={styles.connectButtonText}>{t('common.connectCard')}</Text>
+            <Text style={styles.connectButtonText}>
+              {isLoading ? 'Connecting...' : t('common.connectCard')}
+            </Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -184,6 +221,19 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 20,
     textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  testInfo: {
+    fontSize: 12,
+    color: '#4CAF50',
+    marginBottom: 20,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   inputContainer: {
     marginBottom: 20,
@@ -244,6 +294,9 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 10,
     overflow: 'hidden',
+  },
+  disabledButton: {
+    opacity: 0.7,
   },
   gradientButton: {
     padding: 16,

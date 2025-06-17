@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -87,6 +88,10 @@ export default function Login() {
       if (error) throw error;
 
       if (data.user) {
+        // Store user data and token in AsyncStorage
+        await AsyncStorage.setItem('user', JSON.stringify(data.user));
+        await AsyncStorage.setItem('token', data.session?.access_token || '');
+
         Toast.show({
           type: 'success',
           text1: t('common.success'),

@@ -3,17 +3,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { PaymentMethod } from '../services/payment';
 
 interface PaymentMethodDetailsProps {
   visible: boolean;
   onClose: () => void;
-  method: {
-    type: 'bank_account' | 'card';
-    last4: string;
-    bankName?: string;
-    expiryDate?: string;
-    cardType?: string;
-  };
+  method: PaymentMethod;
   onRemove: () => void;
 }
 
@@ -71,12 +66,9 @@ export default function PaymentMethodDetails({ visible, onClose, method, onRemov
             </View>
             <View style={styles.methodInfo}>
               <Text style={styles.methodType}>
-                {method.type === 'bank_account' ? method.bankName : method.cardType}
+                {method.type === 'bank_account' ? method.bankAccount?.bankName : 'Debit Card'}
               </Text>
               <Text style={styles.methodDetails}>**** {method.last4}</Text>
-              {method.type === 'card' && method.expiryDate && (
-                <Text style={styles.methodDetails}>Expires: {method.expiryDate}</Text>
-              )}
             </View>
           </LinearGradient>
 
@@ -103,7 +95,6 @@ export default function PaymentMethodDetails({ visible, onClose, method, onRemov
             <TouchableOpacity 
               style={[styles.actionButton, styles.editButton]}
               onPress={() => {
-                // TODO: Implement edit functionality
                 Alert.alert(t('common.comingSoon'));
               }}
             >

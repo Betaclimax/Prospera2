@@ -1,24 +1,28 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { supabase } from '../../lib/supabase';
 import ConnectBankAccount from '../components/ConnectBankAccount';
 import ConnectDebitCard from '../components/ConnectDebitCard';
 import PaymentMethodDetails from '../components/PaymentMethodDetails';
-import PaymentService from '../services/payment';
+import PaymentService, { PaymentMethod } from '../services/payment';
 
 const { width } = Dimensions.get('window');
 
-interface PaymentMethod {
+interface Transaction {
   id: string;
-  type: 'bank_account' | 'card';
-  last4: string;
-  bankName?: string;
-  expiryDate?: string;
-  cardType?: string;
-  bankAccount?: { bankName: string };
+  amount: number;
+  type: 'deposit' | 'withdrawal' | 'transfer';
+  status: 'pending' | 'completed' | 'failed';
+  created_at: string;
+  payment_method: {
+    last4: string;
+    bank_name?: string;
+  };
 }
 
 export default function Payments() {
@@ -31,13 +35,90 @@ export default function Payments() {
   const [showConnectBank, setShowConnectBank] = useState(false);
   const [showConnectCard, setShowConnectCard] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [user, setUser] = useState<any>(null);
 
-  // Load payment methods when component mounts
+  // Load user and data when component mounts
   useEffect(() => {
-    const paymentService = PaymentService.getInstance();
-    const methods = paymentService.getPaymentMethods();
-    setPaymentMethods(methods);
+    loadUser();
   }, []);
+
+  useEffect(() => {
+    const loadData = async () => {
+      if (user) {
+        await loadPaymentMethods();
+        await loadTransactions();
+      }
+    };
+    loadData();
+  }, [user]);
+
+  const loadUser = async () => {
+    try {
+      const userJson = await AsyncStorage.getItem('user');
+      if (userJson) {
+        const userData = JSON.parse(userJson);
+        setUser(userData);
+      }
+    } catch (error) {
+      console.error('Error loading user:', error);
+    }
+  };
+
+  const loadPaymentMethods = async () => {
+    try {
+      const paymentService = PaymentService.getInstance();
+      const methods = await paymentService.getPaymentMethods();
+      setPaymentMethods(methods);
+    } catch (error) {
+      console.error('Error loading payment methods:', error);
+      Alert.alert(t('common.error'), t('common.failedToLoadPaymentMethods'));
+    }
+  };
+
+  const loadTransactions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select(`
+          *,
+          payment_method:payment_methods(last4, bank_name)
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+      setTransactions(data || []);
+    } catch (error) {
+      console.error('Error loading transactions:', error);
+      Alert.alert(t('common.error'), t('common.failedToLoadTransactions'));
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  const formatAmount = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount);
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return '#4CAF50';
+      case 'pending':
+        return '#FFC107';
+      case 'failed':
+        return '#F44336';
+      default:
+        return '#9E9E9E';
+    }
+  };
 
   const handleBankSuccess = async (accountDetails: {
     accountNumber: string;
@@ -48,11 +129,11 @@ export default function Payments() {
     try {
       const paymentService = PaymentService.getInstance();
       await paymentService.connectBankAccount(accountDetails);
-      const updatedMethods = paymentService.getPaymentMethods();
-      setPaymentMethods(updatedMethods);
+      await loadPaymentMethods();
       setShowConnectBank(false);
       setShowAddMethodModal(false);
     } catch (error) {
+      console.error('Error connecting bank account:', error);
       Alert.alert(t('common.error'), t('common.failedToConnectBank'));
     }
   };
@@ -66,11 +147,11 @@ export default function Payments() {
     try {
       const paymentService = PaymentService.getInstance();
       await paymentService.connectDebitCard(cardDetails);
-      const updatedMethods = paymentService.getPaymentMethods();
-      setPaymentMethods(updatedMethods);
+      await loadPaymentMethods();
       setShowConnectCard(false);
       setShowAddMethodModal(false);
     } catch (error) {
+      console.error('Error connecting debit card:', error);
       Alert.alert(t('common.error'), t('common.failedToConnectCard'));
     }
   };
@@ -79,12 +160,11 @@ export default function Payments() {
     if (selectedMethod) {
       try {
         const paymentService = PaymentService.getInstance();
-        // Remove the payment method from the service
-        const updatedMethods = paymentService.getPaymentMethods().filter(m => m.id !== selectedMethod.id);
-        setPaymentMethods(updatedMethods);
+        await loadPaymentMethods();
         setShowMethodDetails(false);
         setSelectedMethod(null);
       } catch (error) {
+        console.error('Error removing payment method:', error);
         Alert.alert(t('common.error'), t('common.failedToRemoveMethod'));
       }
     }
@@ -204,20 +284,62 @@ export default function Payments() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.transactionsContainer}>
-        {[1, 2, 3].map((_, index) => (
-          <View key={index} style={styles.transactionItem}>
-            <View style={styles.transactionIcon}>
-              <Image source={require('../../assets/home/deposit.png')} style={styles.transactionIconImage} />
+      {transactions.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Image 
+            source={require('../../assets/home/bell2.png')} 
+            style={styles.emptyStateIcon}
+          />
+          <Text style={styles.emptyStateText}>{t('common.noTransactions')}</Text>
+        </View>
+      ) : (
+        <View style={styles.transactionsContainer}>
+          {transactions.map((transaction) => (
+            <View key={transaction.id} style={styles.transactionItem}>
+              <View style={styles.transactionIcon}>
+                <Image 
+                  source={
+                    transaction.type === 'deposit' 
+                      ? require('../../assets/home/deposit.png')
+                      : require('../../assets/home/withdraw.png')
+                  } 
+                  style={styles.transactionIconImage} 
+                />
+              </View>
+              <View style={styles.transactionInfo}>
+                <Text style={styles.transactionTitle}>
+                  {t(`common.transactionTypes.${transaction.type}`)}
+                </Text>
+                <Text style={styles.transactionDate}>
+                  {formatDate(transaction.created_at)}
+                </Text>
+                <Text style={styles.transactionDetails}>
+                  {transaction.payment_method.bank_name 
+                    ? `${transaction.payment_method.bank_name} (${transaction.payment_method.last4})`
+                    : `Card ending in ${transaction.payment_method.last4}`}
+                </Text>
+              </View>
+              <View style={styles.transactionAmountContainer}>
+                <Text style={[
+                  styles.transactionAmount,
+                  { color: transaction.type === 'deposit' ? '#4CAF50' : '#F44336' }
+                ]}>
+                  {transaction.type === 'deposit' ? '+' : '-'}
+                  {formatAmount(transaction.amount)}
+                </Text>
+                <View style={[
+                  styles.statusBadge,
+                  { backgroundColor: getStatusColor(transaction.status) }
+                ]}>
+                  <Text style={styles.statusText}>
+                    {t(`common.statusP.${transaction.status}`)}
+                  </Text>
+                </View>
+              </View>
             </View>
-            <View style={styles.transactionInfo}>
-              <Text style={styles.transactionTitle}>Deposit</Text>
-              <Text style={styles.transactionDate}>Mar 15, 2024</Text>
-            </View>
-            <Text style={styles.transactionAmount}>+$500.00</Text>
-          </View>
-        ))}
-      </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 
@@ -250,13 +372,6 @@ export default function Payments() {
 
   return (
     <View style={styles.container}>
-      {/* Background Image */}
-      <Image
-        source={require('../../assets/home/background3.png')}
-        style={styles.backgroundImage}
-        resizeMode="cover"
-      />
-
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={goBack} style={styles.backButton}>
@@ -562,7 +677,8 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f0f0f0',
   },
   transactionIcon: {
-    
+    width: 40,
+    height: 40,
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
@@ -584,12 +700,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Satoshi-Regular',
     color: '#666',
+    marginTop: 4,
+  },
+  transactionDetails: {
+    fontSize: 14,
+    fontFamily: 'Satoshi-Regular',
+    color: '#666',
     marginTop: 2,
+  },
+  transactionAmountContainer: {
+    alignItems: 'flex-end',
   },
   transactionAmount: {
     fontSize: 16,
     fontFamily: 'Satoshi-Bold',
-    color: '#4CAF50',
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 4,
+  },
+  statusText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '500',
   },
   actionsContainer: {
     flexDirection: 'row',
