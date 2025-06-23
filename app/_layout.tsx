@@ -7,7 +7,7 @@ import React, { useEffect } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import 'react-native-reanimated';
 import Toast from 'react-native-toast-message';
-import '../constants/i18n'; // Import i18n configuration
+import '../constants/i18n';
 import i18n from '../constants/i18n';
 import { supabase } from '../lib/supabase';
 

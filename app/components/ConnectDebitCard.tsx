@@ -5,7 +5,6 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { supabase } from '../../lib/supabase';
 
 interface ConnectDebitCardProps {
   onSuccess: (cardDetails: {
@@ -27,17 +26,13 @@ export default function ConnectDebitCard({ onSuccess, onCancel }: ConnectDebitCa
   const [isLoading, setIsLoading] = useState(false);
 
   const formatCardNumber = (text: string) => {
-    // Remove all non-digit characters
     const cleaned = text.replace(/\D/g, '');
-    // Add space after every 4 digits
     const formatted = cleaned.replace(/(\d{4})/g, '$1 ').trim();
     return formatted;
   };
 
   const formatExpiryDate = (text: string) => {
-    // Remove all non-digit characters
     const cleaned = text.replace(/\D/g, '');
-    // Add slash after first 2 digits
     if (cleaned.length >= 2) {
       return `${cleaned.slice(0, 2)}/${cleaned.slice(2, 4)}`;
     }
@@ -52,15 +47,11 @@ export default function ConnectDebitCard({ onSuccess, onCancel }: ConnectDebitCa
       }
 
       setIsLoading(true);
-
-      // Get the user from AsyncStorage
       const userStr = await AsyncStorage.getItem('user');
       if (!userStr) {
         throw new Error('User not found');
       }
       const user = JSON.parse(userStr);
-
-      // Create payment method
       const response = await fetch('http://localhost:3000/api/create-payment-method', {
         method: 'POST',
         headers: {
@@ -83,32 +74,12 @@ export default function ConnectDebitCard({ onSuccess, onCancel }: ConnectDebitCa
       }
 
       const data = await response.json();
-
-      // Store payment method in Supabase
-      const { error: dbError } = await supabase
-        .from('payment_methods')
-        .insert({
-          user_id: user.id,
-          type: 'debit_card',
-          stripe_payment_method_id: data.paymentMethodId,
-          stripe_customer_id: data.customerId,
-          last4: data.last4,
-          is_default: true, // Set as default payment method
-          is_verified: true // Debit cards are verified immediately
-        });
-
-      if (dbError) throw dbError;
-
-      // Pass the card details to onSuccess
       onSuccess({
         cardNumber,
         expiryDate,
         cvv,
         cardholderName,
       });
-      
-      // Then navigate to payments page
-      router.push('../payments/payments');
     } catch (error: any) {
       console.error('Card connection error:', error);
       Alert.alert(
@@ -137,7 +108,7 @@ export default function ConnectDebitCard({ onSuccess, onCancel }: ConnectDebitCa
             placeholder={t('common.enterCardNumber')}
             placeholderTextColor="#999"
             keyboardType="numeric"
-            maxLength={19} // 16 digits + 3 spaces
+            maxLength={19}
           />
         </View>
       </View>

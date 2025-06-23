@@ -15,8 +15,6 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  // Animate text when language changes
   useEffect(() => {
     Animated.sequence([
       Animated.timing(fadeAnim, {
@@ -88,7 +86,6 @@ export default function Login() {
       if (error) throw error;
 
       if (data.user) {
-        // Store user data and token in AsyncStorage
         await AsyncStorage.setItem('user', JSON.stringify(data.user));
         await AsyncStorage.setItem('token', data.session?.access_token || '');
 
@@ -130,7 +127,6 @@ export default function Login() {
 
   return (
     <View style={styles.container}>
-      {/* Top Image Section */}
       <Image
         source={require('@/assets/images/logo.png')}
         style={styles.welcomeImage}
@@ -139,9 +135,7 @@ export default function Login() {
       <View>
         <Text style={styles.headtext}>{t('common.welcomeprospera')}</Text>
       </View>
-      {/* Form Container */}
       <View style={styles.formContainer}>
-        {/* Email Input */}
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.input}
@@ -154,7 +148,6 @@ export default function Login() {
           />
           <Text style={styles.icon}>✉️</Text>
         </View>
-        {/* Password Input */}
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.input}
@@ -166,7 +159,6 @@ export default function Login() {
           />
           <Text style={styles.icon}>🔒</Text>
         </View>
-        {/* Remember Me and Forget Password */}
         <View style={styles.optionsContainer}>
           <TouchableOpacity
             style={styles.checkboxContainer}

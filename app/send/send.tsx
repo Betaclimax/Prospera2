@@ -48,7 +48,6 @@ export default function Send() {
 
       <ScrollView style={styles.content}>
         <View style={styles.sendCard}>
-          {/* Recipient Details */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{t('common.recipientDetails')}</Text>
             <View style={styles.inputContainer}>
@@ -73,8 +72,6 @@ export default function Send() {
               />
             </View>
           </View>
-
-          {/* Amount */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{t('common.amount')}</Text>
             <View style={styles.amountContainer}>
@@ -89,8 +86,6 @@ export default function Send() {
               />
             </View>
           </View>
-
-          {/* Note */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{t('common.note')}</Text>
             <TextInput
@@ -102,8 +97,6 @@ export default function Send() {
               multiline
             />
           </View>
-
-          {/* Transaction Summary */}
           <View style={styles.transactionSummary}>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>{t('common.amount')}</Text>
@@ -132,8 +125,6 @@ export default function Send() {
             </LinearGradient>
           </TouchableOpacity>
         </View>
-
-        {/* Recent Transactions */}
         <View style={styles.recentTransactions}>
           <Text style={styles.sectionTitle}>{t('common.recentTransactions')}</Text>
           <View style={styles.recentList}>

@@ -30,7 +30,6 @@ interface UserProfile {
   created_at: string;
 }
 
-// Background images array
 const backgroundImages = [
   require('../../assets/backgrounds/bg1.png'),
   require('../../assets/backgrounds/bg2.png'),
@@ -91,10 +90,9 @@ export default function Profile() {
   }, []);
 
   useEffect(() => {
-    console.log('Modal visibility:', isEditModalVisible); // Debug log for modal state
+    console.log('Modal visibility:', isEditModalVisible); 
   }, [isEditModalVisible]);
 
-  // Animate text when language changes
   useEffect(() => {
     Animated.sequence([
       Animated.timing(fadeAnim, {
@@ -114,8 +112,6 @@ export default function Profile() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-
-      // Try to fetch the profile
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
@@ -123,7 +119,6 @@ export default function Profile() {
         .single();
 
       if (error) {
-        // If profile doesn't exist, create it
         if (error.code === 'PGRST116') {
           const { data: newProfile, error: createError } = await supabase
             .from('profiles')
@@ -188,16 +183,16 @@ export default function Profile() {
   };
 
   const handleEditProfile = () => {
-    console.log('handleEditProfile called'); // Debug log
+    console.log('handleEditProfile called'); 
     if (userProfile) {
-      console.log('Setting edited profile with:', userProfile); // Debug log
+      console.log('Setting edited profile with:', userProfile); 
       setEditedProfile({
         full_name: userProfile.full_name,
         email: userProfile.email,
         phone_number: userProfile.phone_number
       });
     }
-    console.log('Setting modal visible to true'); // Debug log
+    console.log('Setting modal visible to true'); 
     setIsEditModalVisible(true);
   };
 
@@ -288,7 +283,6 @@ export default function Profile() {
       setSelectedBackground(tempSelectedBackground);
       setShowBackgroundSelector(false);
       
-      // Show toast message with translations
       Toast.show({
         type: 'success',
         text1: t('common.success'),
@@ -297,7 +291,6 @@ export default function Profile() {
         visibilityTime: 3000,
         autoHide: true,
         onHide: () => {
-          // Navigate to home page to see the changes
           router.push('../home/home');
         }
       });
@@ -326,8 +319,6 @@ export default function Profile() {
           style={styles.gradient}
         >
           <ScrollView style={styles.mainContent} contentContainerStyle={styles.scrollContent}>
-
-            {/* Profile Header */}
             <View style={styles.profileHeader}>
               <View style={styles.profileImageContainer}>
                 <LinearGradient
@@ -351,8 +342,6 @@ export default function Profile() {
               </Animated.Text>
               <Text style={styles.profileEmail}>{userProfile?.email}</Text>
             </View>
-
-            {/* Profile Information */}
             <View style={styles.profileInfo}>
               <View style={styles.infoSection}>
                 <Text style={styles.sectionTitle}>{t('common.accountInfo')}</Text>
@@ -386,8 +375,6 @@ export default function Profile() {
                   </View>
                 </View>
               </View>
-
-              {/* Action Buttons */}
               <View style={styles.actionButtons}>
                 <TouchableOpacity 
                   style={styles.actionButton} 
@@ -430,8 +417,6 @@ export default function Profile() {
               </View>
             </View>
           </ScrollView>
-
-          {/* Edit Profile Modal */}
           <Modal
             animationType="slide"
             transparent={true}
@@ -484,8 +469,6 @@ export default function Profile() {
               </View>
             </View>
           </Modal>
-
-          {/* Settings Modal */}
           <Modal
             animationType="slide"
             transparent={true}
@@ -502,7 +485,6 @@ export default function Profile() {
                 </View>
 
                 <ScrollView style={styles.settingsScroll}>
-                  {/* Language Section */}
                   <View style={styles.settingsSection}>
                     <Text style={styles.sectionTitle}>{t('common.language')}</Text>
                     <View style={styles.settingItem}>
@@ -526,8 +508,6 @@ export default function Profile() {
                       </View>
                     </View>
                   </View>
-
-                  {/* Security Section */}
                   <View style={styles.settingsSection}>
                     <Text style={styles.sectionTitle}>{t('common.security')}</Text>
                     <View style={styles.settingItem}>
@@ -549,19 +529,8 @@ export default function Profile() {
                       />
                     </View>
                   </View>
-
-                  {/* Preferences Section */}
                   <View style={styles.settingsSection}>
                     <Text style={styles.sectionTitle}>{t('common.preferences')}</Text>
-                    <View style={styles.settingItem}>
-                      <Text style={styles.settingLabel}>{t('common.darkMode')}</Text>
-                      <Switch
-                        value={settings.darkMode}
-                        onValueChange={(value) => handleSettingsChange('darkMode', value)}
-                        trackColor={{ false: '#E0E0E0', true: '#2196F3' }}
-                        thumbColor={settings.darkMode ? '#1976D2' : '#F5F5F5'}
-                      />
-                    </View>
                     <View style={styles.settingItem}>
                       <Text style={styles.settingLabel}>{t('common.autoSave')}</Text>
                       <Switch
@@ -572,41 +541,6 @@ export default function Profile() {
                       />
                     </View>
                   </View>
-
-                  {/* Currency Section */}
-                  <View style={styles.settingsSection}>
-                    <Text style={styles.sectionTitle}>{t('common.currency')}</Text>
-                    <View style={styles.settingItem}>
-                      <View style={styles.currencySelector}>
-                        <TouchableOpacity 
-                          style={[styles.currencyOption, settings.currency === 'USD' && styles.selectedCurrency]}
-                          onPress={() => handleSettingsChange('currency', 'USD')}
-                        >
-                          <Text style={[styles.currencyText, settings.currency === 'USD' && styles.selectedCurrencyText]}>
-                            USD
-                          </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                          style={[styles.currencyOption, settings.currency === 'EUR' && styles.selectedCurrency]}
-                          onPress={() => handleSettingsChange('currency', 'EUR')}
-                        >
-                          <Text style={[styles.currencyText, settings.currency === 'EUR' && styles.selectedCurrencyText]}>
-                            EUR
-                          </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                          style={[styles.currencyOption, settings.currency === 'GBP' && styles.selectedCurrency]}
-                          onPress={() => handleSettingsChange('currency', 'GBP')}
-                        >
-                          <Text style={[styles.currencyText, settings.currency === 'GBP' && styles.selectedCurrencyText]}>
-                            GBP
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  </View>
-
-                  {/* Background Customization Section */}
                   <View style={styles.settingsSection}>
                     <Text style={styles.sectionTitle}>{t('common.background')}</Text>
                     <View style={styles.settingItem}>
@@ -637,8 +571,6 @@ export default function Profile() {
               </View>
             </View>
           </Modal>
-
-          {/* Background Selection Modal */}
           <Modal
             visible={showBackgroundSelector}
             transparent={true}
@@ -696,10 +628,7 @@ export default function Profile() {
               </View>
             </View>
           </Modal>
-
-          {/* Bottom Navigation */}
           <View style={styles.bottomMenuContainer}>
-            {/* Left menu part */}
             <View style={styles.menuPartLeft}>
                 <TouchableOpacity style={styles.menuItem} onPress={goHome}>
                     <Image source={require('../../assets/home/home2.png')} style={{ width: 24, height: 24 }} />
@@ -714,8 +643,6 @@ export default function Profile() {
                 </Animated.Text>
                 </TouchableOpacity>
             </View>
-    
-            {/* Center Invest button */}
             <View style={styles.investButtonWrapper}>
                 <TouchableOpacity style={styles.investButton} onPress={goSavings}>
                     <Image source={require('../../assets/home/save.png')} style={{ width: 32, height: 32 }} />
@@ -724,8 +651,6 @@ export default function Profile() {
                 </Animated.Text>
                 </TouchableOpacity>
             </View>
-    
-            {/* Right menu part */}
             <View style={styles.menuPartRight}>
                 <TouchableOpacity style={styles.menuItem} onPress={goInbox}>
                 <Image source={require('../../assets/home/bell2.png')} style={{ width: 19, height: 24 }} />

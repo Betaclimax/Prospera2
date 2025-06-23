@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import { format } from 'date-fns';
 import { LinearGradient } from 'expo-linear-gradient';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { supabase } from '../../lib/supabase';
 import { PaymentMethod } from '../services/payment';
 
 interface PaymentMethodDetailsProps {
@@ -14,6 +16,41 @@ interface PaymentMethodDetailsProps {
 
 export default function PaymentMethodDetails({ visible, onClose, method, onRemove }: PaymentMethodDetailsProps) {
   const { t } = useTranslation();
+  const [createdAt, setCreatedAt] = useState<string>('');
+ 
+  useEffect(() => {
+    fetchDetailpayments();
+  }, []);
+
+  const fetchDetailpayments = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      console.log('Fetching payment method with ID:', method.id);
+      
+      const { data, error } = await supabase
+        .from('payment_methods')
+        .select('created_at')
+        .eq('stripe_payment_method_id', method.id)
+        .single();
+
+      console.log('Supabase response:', { data, error });
+
+      if (error) throw error;
+      
+      if (data?.created_at) {
+        console.log('Raw created_at:', data.created_at);
+        const formattedDate = format(new Date(data.created_at), 'MMM dd, yyyy');
+        console.log('Formatted date:', formattedDate);
+        setCreatedAt(formattedDate);
+      } else {
+        console.log('No created_at data found');
+      }
+    } catch (error) {
+      console.error('Error fetching payment method details:', error);
+    }
+  };
 
   const handleRemove = () => {
     Alert.alert(
@@ -55,7 +92,7 @@ export default function PaymentMethodDetails({ visible, onClose, method, onRemov
           </View>
 
           <LinearGradient
-            colors={method.type === 'bank_account' ? ['#4CAF50', '#66BB6A'] : ['#2196F3', '#1976D2']}
+            colors={method.type === 'bank_account' ? ['#2196F3', '#1976D2'] : ['#2196F3', '#1976D2']}
             style={styles.methodCard}
           >
             <View style={styles.methodIcon}>
@@ -82,12 +119,7 @@ export default function PaymentMethodDetails({ visible, onClose, method, onRemov
 
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>{t('common.addedOn')}</Text>
-              <Text style={styles.detailValue}>March 15, 2024</Text>
-            </View>
-
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>{t('common.lastUsed')}</Text>
-              <Text style={styles.detailValue}>March 20, 2024</Text>
+              <Text style={styles.detailValue}>{createdAt}</Text>
             </View>
           </View>
 

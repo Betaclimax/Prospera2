@@ -18,8 +18,6 @@ export default function Onboarding() {
   const router = useRouter();
   const { t } = useTranslation();
   const fadeAnim = useRef(new Animated.Value(1)).current;
-
-  // Draggable LanguageSwitcher state
   const [isDraggable, setIsDraggable] = useState(false);
   const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const longPressTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -60,7 +58,6 @@ export default function Onboarding() {
     },
   ];
 
-  // Animate text when language changes
   useEffect(() => {
     Animated.sequence([
       Animated.timing(fadeAnim, {
@@ -94,7 +91,6 @@ export default function Onboarding() {
 
   return (
     <View style={styles.container}>
-      {/* Draggable Language Switcher */}
       <Animated.View
         style={[
           styles.languageSwitcherContainer,
@@ -119,7 +115,6 @@ export default function Onboarding() {
         </View>
       </Animated.View>
 
-      {/* Illustration Container */}
       <LinearGradient
         colors={['#2196F3', '#54BAB9']}
         style={styles.illustrationContainer}
@@ -134,7 +129,6 @@ export default function Onboarding() {
         />
       </LinearGradient>
 
-      {/* Text Container */}
       <View style={styles.textContainer}>
         <Animated.Text style={[styles.titleText, { opacity: fadeAnim }]}>
           {t(`common.${screens[currentScreen].key}.title`)}
@@ -144,7 +138,6 @@ export default function Onboarding() {
         </Animated.Text>
       </View>
 
-      {/* Pagination and Button Container */}
       <View style={styles.bottomContainer}>
         <View style={styles.paginationContainer}>
           {screens.map((_, index) => (

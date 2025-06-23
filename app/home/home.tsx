@@ -19,7 +19,6 @@ const splashImages = [
   require('../../assets/home/banner3.png'),
 ];
 
-// Background images array
 const backgroundImages = [
   require('../../assets/backgrounds/bg1.png'),
   require('../../assets/backgrounds/bg2.png'),
@@ -65,6 +64,7 @@ export default function Home() {
   const [activeSplashIndex, setActiveSplashIndex] = useState(0);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [totalSaved, setTotalSaved] = useState(0);
+  const [totalInvested, setTotalInvested] = useState(0);
   const flatListRef = useRef<FlatList<any>>(null);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -85,6 +85,7 @@ export default function Home() {
     fetchUserProfile();
     loadSavedBackground();
     fetchTotalSavings();
+    fetchTotalInvest();
   }, []);
 
   const fetchUserProfile = async () => {
@@ -99,7 +100,6 @@ export default function Home() {
 
         if (error) throw error;
         setUserProfile(profile);
-        // Fetch total savings after getting user profile
         fetchTotalSavings();
       }
     } catch (error) {
@@ -138,7 +138,26 @@ export default function Home() {
     }
   };
 
-  // Add subscription to savings_plans changes
+  const fetchTotalInvest = async () => {
+    try {
+      const { data: { user } } =await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: invest, error} = await supabase
+        .from('investments')
+        .select('amount')
+        .eq('user_id', user.id)
+        .eq('status', 'active');
+      
+      if ( error ) throw error;
+
+      const total = invest?.reduce((sum, plan) => sum + plan.amount, 0) || 0;
+      setTotalInvested(total);
+    } catch (error) {
+      console.error('Error fetching total invest', error);
+    }
+  };
+
   useEffect(() => {
     const setupSubscription = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -201,7 +220,6 @@ export default function Home() {
     router.push('../reports/reports');
   };
 
-  // Auto-scroll functionality
   useEffect(() => {
     const interval = setInterval(() => {
       const nextIndex = (activeSplashIndex + 1) % splashImages.length;
@@ -223,12 +241,10 @@ export default function Home() {
     </View>
   );
 
-  // Savings Progress Data
   const totalWeeks = 10;
   const currentWeek = 6;
   const progressPercentage = (currentWeek / totalWeeks) * 100;
 
-  // Animation for fairy tale effect (glowing)
   const glowAnimation = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -325,7 +341,6 @@ export default function Home() {
     setShowSendModal(false);
   };
 
-  // Generate payment link when amount changes
   useEffect(() => {
     if (receiveAmount) {
       setPaymentLink(`https://prospera.app/pay/${userProfile?.id}/${receiveAmount}`);
@@ -363,7 +378,6 @@ export default function Home() {
         style={styles.backgroundImage}
         resizeMode="cover"
       >
-        {/* Magic Button - Fixed Position */}
         <View style={styles.magicButtonWrapper}>
           <Animated.View style={[
             styles.magicButtonContainer,
@@ -388,7 +402,6 @@ export default function Home() {
         </View>
 
         <ScrollView style={styles.mainContent} contentContainerStyle={styles.scrollContent}>
-          {/* Welcome Section */}
           <View style={styles.welcomeSection}>
             <View style={styles.welcomeHeader}>
               <TouchableOpacity onPress={goProfile}>
@@ -407,8 +420,6 @@ export default function Home() {
               </View>
             </View>
           </View>
-
-          {/* Quick Actions Modal */}
           <Modal
             visible={showQuickActions}
             transparent={true}
@@ -471,8 +482,6 @@ export default function Home() {
               </View>
             </TouchableOpacity>
           </Modal>
-
-          {/* Splash Images Section */}
           <View style={styles.splashSection}>
             <View style={styles.dotsContainer}>
               {splashImages.map((_, index) => (
@@ -498,8 +507,6 @@ export default function Home() {
               decelerationRate="fast"
             />
           </View>
-
-          {/* Total Balance Section */}
           <LinearGradient
             colors={['#E3F2FD', '#BBDEFB']}
             style={styles.balanceSection}
@@ -517,7 +524,7 @@ export default function Home() {
                   </View>
                 </View>
                 <Text style={styles.balanceAmount}>
-                  {activeTab === 'Save' ? `$${totalSaved.toLocaleString()}` : '$5,000'}
+                  {activeTab === 'Save' ? `$${totalSaved.toLocaleString()}` : `$${totalInvested.toLocaleString()}`}
                 </Text>
               </View>
 
@@ -541,8 +548,6 @@ export default function Home() {
               </View>
             </View>
           </LinearGradient>
-
-          {/* Wallet Actions */}
           <View style={styles.walletActions}>
             <View style={styles.walletActionsGrid}>
               <TouchableOpacity style={styles.walletActionButton} onPress={gosavings}>
@@ -627,8 +632,6 @@ export default function Home() {
               </TouchableOpacity>
             </View>
           </View>
-
-          {/* Insights Section */}
           <View style={styles.insightsSection}>
             <View style={styles.insightsHeader}>
               <Text style={styles.insightsTitle}>{t('common.insights')}</Text>
@@ -667,9 +670,7 @@ export default function Home() {
         </ScrollView>
       </ImageBackground>
 
-      {/* Bottom Menu Bar */}
       <View style={styles.bottomMenuContainer}>
-        {/* Left menu part */}
         <View style={styles.menuPartLeft}>
           <TouchableOpacity style={styles.menuItem}>
             <Image source={require('../../assets/home/home2.png')} style={{ width: 24, height: 24 }} />
@@ -680,16 +681,12 @@ export default function Home() {
             <Text style={styles.menuText}>{t('common.invest')}</Text>
           </TouchableOpacity>
         </View>
-
-        {/* Center Invest button */}
         <View style={styles.investButtonWrapper}>
           <TouchableOpacity style={styles.investButton} onPress={gosavings}>
             <Image source={require('../../assets/home/save.png')} style={{ width: 32, height: 32 }} />
             <Text style={styles.investText}>{t('common.save')}</Text>
           </TouchableOpacity>
         </View>
-
-        {/* Right menu part */}
         <View style={styles.menuPartRight}>
           <TouchableOpacity style={styles.menuItem} onPress={goInbox}>
             <Image source={require('../../assets/home/bell2.png')} style={{ width: 19, height: 24 }} />
@@ -701,8 +698,6 @@ export default function Home() {
           </TouchableOpacity>
         </View>
       </View>
-
-      {/* Send Money Modal */}
       <Modal
         visible={showSendModal}
         transparent={true}
@@ -719,7 +714,6 @@ export default function Home() {
             </View>
 
             <ScrollView style={styles.sendForm}>
-              {/* Recipient Details */}
               <View style={styles.formSection}>
                 <Text style={styles.sectionTitle}>{t('common.recipientDetails')}</Text>
                 <View style={styles.inputContainer}>
@@ -744,8 +738,6 @@ export default function Home() {
                   />
                 </View>
               </View>
-
-              {/* Amount */}
               <View style={styles.formSection}>
                 <Text style={styles.sectionTitle}>{t('common.amount')}</Text>
                 <View style={styles.amountContainer}>
@@ -760,8 +752,6 @@ export default function Home() {
                   />
                 </View>
               </View>
-
-              {/* Note */}
               <View style={styles.formSection}>
                 <Text style={styles.sectionTitle}>{t('common.note')}</Text>
                 <TextInput
@@ -773,8 +763,6 @@ export default function Home() {
                   multiline
                 />
               </View>
-
-              {/* Transaction Summary */}
               <View style={styles.transactionSummary}>
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>{t('common.amount')}</Text>
@@ -806,8 +794,6 @@ export default function Home() {
           </View>
         </View>
       </Modal>
-
-      {/* Receive Money Modal */}
       <Modal
         visible={showReceiveModal}
         transparent={true}
@@ -824,7 +810,6 @@ export default function Home() {
             </View>
 
             <ScrollView style={styles.receiveForm}>
-              {/* Amount Input */}
               <View style={styles.formSection}>
                 <Text style={styles.sectionTitle}>{t('common.amount')}</Text>
                 <View style={styles.amountContainer}>
@@ -839,8 +824,6 @@ export default function Home() {
                   />
                 </View>
               </View>
-
-              {/* QR Code or Account Details */}
               <View style={styles.formSection}>
                 <View style={styles.tabContainer}>
                   <TouchableOpacity
@@ -888,8 +871,6 @@ export default function Home() {
                   </View>
                 )}
               </View>
-
-              {/* Payment Link */}
               <View style={styles.formSection}>
                 <Text style={styles.sectionTitle}>{t('common.paymentLink')}</Text>
                 <View style={styles.linkContainer}>
@@ -912,8 +893,6 @@ export default function Home() {
                   </View>
                 </View>
               </View>
-
-              {/* Instructions */}
               <View style={styles.formSection}>
                 <Text style={styles.sectionTitle}>{t('common.howToReceive')}</Text>
                 <View style={styles.instructionsContainer}>

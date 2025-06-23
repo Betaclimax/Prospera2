@@ -2,33 +2,36 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BarChart, LineChart } from 'react-native-chart-kit';
+import { supabase } from '../../lib/supabase';
 
 const { width } = Dimensions.get('window');
 
-// Mock data for charts
-const savingsData = {
-  labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-  datasets: [
-    {
-      data: [2000, 4500, 2800, 8000, 9900, 12000],
-      color: (opacity = 1) => `rgba(25, 118, 210, ${opacity})`,
-      strokeWidth: 2,
-    },
-  ],
-};
+interface SavingsData {
+  labels: string[];
+  datasets: {
+    data: number[];
+    color: (opacity: number) => string;
+    strokeWidth: number;
+  }[];
+}
 
-const monthlyComparisonData = {
-  labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-  datasets: [
-    {
-      data: [2000, 2500, 2800, 3200, 3500, 4000],
-    },
-  ],
-};
+interface MonthlyComparisonData {
+  labels: string[];
+  datasets: {
+    data: number[];
+  }[];
+}
+
+interface AnalyticsStats {
+  totalSaved: number;
+  activePlans: number;
+  monthlyChange: number;
+  plansChange: number;
+}
 
 const chartConfig = {
   backgroundGradientFrom: '#FFFFFF',
@@ -61,6 +64,186 @@ export default function Analytics() {
   const [selectedPeriod, setSelectedPeriod] = useState('6M');
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedChart, setSelectedChart] = useState<'savings' | 'comparison' | null>(null);
+  const [savingsData, setSavingsData] = useState<SavingsData>({
+    labels: [],
+    datasets: [{
+      data: [],
+      color: (opacity = 1) => `rgba(25, 118, 210, ${opacity})`,
+      strokeWidth: 2,
+    }],
+  });
+  const [monthlyComparisonData, setMonthlyComparisonData] = useState<MonthlyComparisonData>({
+    labels: [],
+    datasets: [{
+      data: [],
+    }],
+  });
+  const [stats, setStats] = useState<AnalyticsStats>({
+    totalSaved: 0,
+    activePlans: 0,
+    monthlyChange: 0,
+    plansChange: 0,
+  });
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadUser();
+  }, []);
+
+  useEffect(() => {
+    if (userId) {
+      loadAnalyticsData();
+    }
+  }, [userId, selectedPeriod]);
+
+  const loadUser = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+      }
+    } catch (error) {
+      console.error('Error loading user:', error);
+    }
+  };
+
+  const loadAnalyticsData = async () => {
+    if (!userId) return;
+    setIsLoading(true);
+
+    try {
+      // Get date range based on selected period
+      const endDate = new Date();
+      const startDate = new Date();
+      switch (selectedPeriod) {
+        case '1M':
+          startDate.setMonth(endDate.getMonth() - 1);
+          break;
+        case '3M':
+          startDate.setMonth(endDate.getMonth() - 3);
+          break;
+        case '6M':
+          startDate.setMonth(endDate.getMonth() - 6);
+          break;
+        case '1Y':
+          startDate.setFullYear(endDate.getFullYear() - 1);
+          break;
+        case 'ALL':
+          startDate.setFullYear(endDate.getFullYear() - 5); // Show last 5 years for ALL
+          break;
+      }
+
+      // Fetch savings plans
+      const { data: savingsPlans, error: savingsError } = await supabase
+        .from('savings_plans')
+        .select('*')
+        .eq('user_id', userId)
+        .gte('start_date', startDate.toISOString())
+        .lte('start_date', endDate.toISOString())
+        .order('start_date', { ascending: true });
+
+      if (savingsError) throw savingsError;
+
+      // Fetch transactions
+      const { data: transactions, error: transactionsError } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', userId)
+        .gte('created_at', startDate.toISOString())
+        .lte('created_at', endDate.toISOString())
+        .order('created_at', { ascending: true });
+
+      if (transactionsError) throw transactionsError;
+
+      // Process savings data for charts
+      const monthlySavings = new Map<string, number>();
+      const monthlyComparison = new Map<string, number>();
+
+      savingsPlans?.forEach(plan => {
+        const date = new Date(plan.start_date);
+        const monthKey = `${date.getFullYear()}-${date.getMonth() + 1}`;
+        monthlySavings.set(monthKey, (monthlySavings.get(monthKey) || 0) + plan.amount);
+      });
+
+      transactions?.forEach(transaction => {
+        if (transaction.type === 'deposit') {
+          const date = new Date(transaction.created_at);
+          const monthKey = `${date.getFullYear()}-${date.getMonth() + 1}`;
+          monthlyComparison.set(monthKey, (monthlyComparison.get(monthKey) || 0) + transaction.amount);
+        }
+      });
+
+      // Format data for charts
+      const labels = Array.from(monthlySavings.keys()).map(key => {
+        const [year, month] = key.split('-');
+        return new Date(parseInt(year), parseInt(month) - 1).toLocaleString('default', { month: 'short' });
+      });
+
+      const savingsValues = Array.from(monthlySavings.values());
+      const comparisonValues = Array.from(monthlyComparison.values());
+
+      // Validate data before setting state
+      if (savingsValues.length === 0) {
+        savingsValues.push(0);
+        labels.push(new Date().toLocaleString('default', { month: 'short' }));
+      }
+
+      if (comparisonValues.length === 0) {
+        comparisonValues.push(0);
+      }
+
+      setSavingsData({
+        labels,
+        datasets: [{
+          data: savingsValues,
+          color: (opacity = 1) => `rgba(25, 118, 210, ${opacity})`,
+          strokeWidth: 2,
+        }],
+      });
+
+      setMonthlyComparisonData({
+        labels,
+        datasets: [{
+          data: comparisonValues,
+        }],
+      });
+
+      // Calculate stats
+      const totalSaved = savingsPlans?.reduce((sum, plan) => sum + plan.amount, 0) || 0;
+      const activePlans = savingsPlans?.filter(plan => plan.status === 'active').length || 0;
+
+      // Calculate changes compared to previous period
+      const previousEndDate = new Date(startDate);
+      const previousStartDate = new Date(startDate);
+      previousStartDate.setMonth(previousStartDate.getMonth() - 1);
+
+      const { data: previousSavingsPlans } = await supabase
+        .from('savings_plans')
+        .select('*')
+        .eq('user_id', userId)
+        .gte('start_date', previousStartDate.toISOString())
+        .lte('start_date', previousEndDate.toISOString());
+
+      const previousTotalSaved = previousSavingsPlans?.reduce((sum, plan) => sum + plan.amount, 0) || 0;
+      const previousActivePlans = previousSavingsPlans?.filter(plan => plan.status === 'active').length || 0;
+
+      const monthlyChange = previousTotalSaved ? ((totalSaved - previousTotalSaved) / previousTotalSaved) * 100 : 0;
+      const plansChange = previousActivePlans ? activePlans - previousActivePlans : 0;
+
+      setStats({
+        totalSaved,
+        activePlans,
+        monthlyChange,
+        plansChange,
+      });
+
+    } catch (error) {
+      console.error('Error loading analytics data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const goHome = () => router.push('../home/home');
   const goInvest = () => router.push('../invest/invest');
@@ -240,11 +423,20 @@ export default function Analytics() {
             end={{ x: 1, y: 1 }}
           >
             <View style={styles.statHeader}>
-            <Text style={styles.statLabel}>{t('common.totalSaved')}</Text>
-              <Ionicons name="trending-up" size={20} color="#1976D2" />
+              <Text style={styles.statLabel}>{t('common.totalSaved')}</Text>
+              <Ionicons 
+                name={stats.monthlyChange >= 0 ? "trending-up" : "trending-down"} 
+                size={20} 
+                color={stats.monthlyChange >= 0 ? "#1976D2" : "#FF9800"} 
+              />
             </View>
-            <Text style={styles.statValue}>$12,000</Text>
-            <Text style={styles.statChange}>+15% {t('common.vsLastMonth')}</Text>
+            <Text style={styles.statValue}>${stats.totalSaved.toFixed(2)}</Text>
+            <Text style={[
+              styles.statChange,
+              { color: stats.monthlyChange >= 0 ? '#1976D2' : '#FF9800' }
+            ]}>
+              {stats.monthlyChange >= 0 ? '+' : ''}{stats.monthlyChange.toFixed(1)}% {t('common.vsLastMonth')}
+            </Text>
           </LinearGradient>
 
           <LinearGradient
@@ -254,50 +446,26 @@ export default function Analytics() {
             end={{ x: 1, y: 1 }}
           >
             <View style={styles.statHeader}>
-            <Text style={styles.statLabel}>{t('common.activePlans')}</Text>
-              <Ionicons name="wallet-outline" size={20} color="#1976D2" />
+              <Text style={styles.statLabel}>{t('common.activePlans')}</Text>
+              <Ionicons 
+                name={stats.plansChange >= 0 ? "trending-up" : "trending-down"} 
+                size={20} 
+                color={stats.plansChange >= 0 ? "#1976D2" : "#FF9800"} 
+              />
             </View>
-            <Text style={styles.statValue}>3</Text>
-            <Text style={styles.statChange}>+1 {t('common.vsLastMonth')}</Text>
+            <Text style={styles.statValue}>{stats.activePlans}</Text>
+            <Text style={[
+              styles.statChange,
+              { color: stats.plansChange >= 0 ? '#1976D2' : '#FF9800' }
+            ]}>
+              {stats.plansChange >= 0 ? '+' : ''}{stats.plansChange} {t('common.vsLastMonth')}
+            </Text>
           </LinearGradient>
-        </View>
-
-        <View style={styles.chartContainer}>
-          <View style={styles.chartHeader}>
-          <Text style={styles.chartTitle}>{t('common.savingsTrend')}</Text>
-            <TouchableOpacity 
-              style={styles.chartAction}
-              onPress={() => {
-                setSelectedChart('savings');
-                setShowDetailsModal(true);
-              }}
-            >
-              <Text style={styles.chartActionText}>{t('common.viewDetails')}</Text>
-              <Ionicons name="chevron-forward" size={16} color="#1976D2" />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.chartWrapper}>
-            <LineChart
-              data={savingsData}
-              width={width - 48}
-              height={220}
-              chartConfig={chartConfig}
-              bezier
-              style={styles.chart}
-              withInnerLines={true}
-              withOuterLines={true}
-              withVerticalLines={false}
-              withHorizontalLines={true}
-              withVerticalLabels={true}
-              withHorizontalLabels={true}
-              fromZero={true}
-            />
-          </View>
         </View>
 
         <View style={[styles.chartContainer, { marginBottom: 100 }]}>
           <View style={styles.chartHeader}>
-          <Text style={styles.chartTitle}>{t('common.monthlyComparison')}</Text>
+            <Text style={styles.chartTitle}>{t('common.monthlyComparison')}</Text>
             <TouchableOpacity 
               style={styles.chartAction}
               onPress={() => {
@@ -310,19 +478,25 @@ export default function Analytics() {
             </TouchableOpacity>
           </View>
           <View style={styles.chartWrapper}>
-            <BarChart
-              data={monthlyComparisonData}
-              width={width - 48}
-              height={220}
-              chartConfig={chartConfig}
-              style={styles.chart}
-              showValuesOnTopOfBars
-              yAxisLabel=""
-              yAxisSuffix=""
-              withVerticalLabels={true}
-              withHorizontalLabels={true}
-              fromZero={true}
-            />
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#1976D2" />
+              </View>
+            ) : (
+              <BarChart
+                data={monthlyComparisonData}
+                width={width - 48}
+                height={220}
+                chartConfig={chartConfig}
+                style={styles.chart}
+                showValuesOnTopOfBars
+                yAxisLabel=""
+                yAxisSuffix=""
+                withVerticalLabels={true}
+                withHorizontalLabels={true}
+                fromZero={true}
+              />
+            )}
           </View>
         </View>
       </ScrollView>
@@ -703,5 +877,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Satoshi',
     opacity: 0.8,
     lineHeight: 20,
+  },
+  loadingContainer: {
+    height: 220,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
   },
 }); 

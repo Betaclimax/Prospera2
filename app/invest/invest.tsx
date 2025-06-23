@@ -5,20 +5,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Animated, Dimensions, Image, ImageBackground, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Dimensions, Image, ImageBackground, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { supabase } from '../../lib/supabase';
 
-type Investment = {
-  id: number;
-  amount: number;
-  startDate: string;
-  endDate: string;
-  interestRate: number;
-  status: 'active' | 'matured' | 'withdrawn';
-  profit: number;
-  expectedReturn: number;
-};
-
-const MOCK_MATURED_SAVINGS = 2000;
 const INTEREST_RATE = 0.10;
 const FEE_RATE = 0.02;
 const INVEST_MONTHS = 6;
@@ -49,17 +38,33 @@ const backgroundImages = [
   require('../../assets/backgrounds/bg22.png'),
 ];
 
+type Investment = {
+  id: number;
+  user_id: string;
+  amount: number;
+  start_date: string;
+  end_date: string;
+  interest_rate: number;
+  status: 'active' | 'matured' | 'withdrawn';
+  profit: number;
+  expected_return: number;
+  created_at?: string;
+};
+
 export default function Invest() {
   const router = useRouter();
   const { t } = useTranslation();
   const fadeAnim = useRef(new Animated.Value(1)).current;
-  const [maturedSavings, setMaturedSavings] = useState(MOCK_MATURED_SAVINGS);
+  const [maturedSavings, setMaturedSavings] = useState<number>(0);
   const [investAmount, setInvestAmount] = useState('');
+  const [totalInvested, setTotalInvested] = useState<number>(0);
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showInvestmentModal, setShowInvestmentModal] = useState(false);
   const [selectedInvestment, setSelectedInvestment] = useState<Investment | null>(null);
   const [selectedBackground, setSelectedBackground] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     Animated.sequence([
@@ -78,6 +83,7 @@ export default function Invest() {
 
   useEffect(() => {
     loadSavedBackground();
+    fetchTotalInvest();
   }, []);
 
   const loadSavedBackground = async () => {
@@ -92,43 +98,114 @@ export default function Invest() {
     }
   };
 
+  const fetchMaturedSavings = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('savings_plans')
+      .select('amount')
+      .eq('user_id', userId)
+      .eq('status', 'matured');
+    if (error) throw error;
+    return data?.reduce((sum, plan) => sum + plan.amount, 0) || 0;
+  };
+
+  const fetchInvestments = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('investments')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  };
+
+  const fetchTotalInvest = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: invest, error } = await supabase
+        .from('investments')
+        .select('amount')
+        .eq('user_id', user.id)
+        .eq('status', 'active');
+      
+      if (error) throw error;
+
+      const total = (invest?.reduce((sum: number, plan: { amount: number }) => sum + plan.amount, 0)) || 0;
+      setTotalInvested(total);
+    } catch (error) {
+      console.error('Error fetching total invest', error);
+    }
+  };
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const userStr = await AsyncStorage.getItem('user');
+        if (!userStr) throw new Error('User not found');
+        const user = JSON.parse(userStr);
+        const savings = await fetchMaturedSavings(user.id);
+        setMaturedSavings(savings);
+        const invs = await fetchInvestments(user.id);
+        setInvestments(invs);
+      } catch (err: any) {
+        setError(err.message || 'Failed to load data');
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+
   const goHome = () => router.push('../home/home');
   const goSavings = () => router.push('../save/savings');
   const goInbox = () => router.push('../inbox/inbox');
   const goProfile = () => router.push('../profile/profile');
 
-  const handleInvest = () => {
+  const handleInvest = async () => {
     const amount = Number(investAmount);
     if (isNaN(amount) || amount <= 0 || amount > maturedSavings) {
       Alert.alert(t('common.invalidAmount'), t('common.enterValidAmount'));
       return;
     }
-
-    const fee = amount * FEE_RATE;
-    const netAmount = amount - fee;
-    const profit = netAmount * INTEREST_RATE;
-    const expectedReturn = netAmount + profit;
-
-    const startDate = new Date();
-    const endDate = new Date();
-    endDate.setMonth(endDate.getMonth() + INVEST_MONTHS);
-
-    const newInvestment: Investment = {
-      id: Date.now(),
-      amount: netAmount,
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
-      interestRate: INTEREST_RATE,
-      status: 'active',
-      profit: profit,
-      expectedReturn: expectedReturn,
-    };
-
-    setInvestments([newInvestment, ...investments]);
-    setMaturedSavings(maturedSavings - amount);
-    setInvestAmount('');
-    setShowInvestmentModal(false);
-    setShowSuccessModal(true);
+    try {
+      setLoading(true);
+      const userStr = await AsyncStorage.getItem('user');
+      if (!userStr) throw new Error('User not found');
+      const user = JSON.parse(userStr);
+      const fee = amount * FEE_RATE;
+      const netAmount = amount - fee;
+      const profit = netAmount * INTEREST_RATE;
+      const expectedReturn = netAmount + profit;
+      const startDate = new Date();
+      const endDate = new Date();
+      endDate.setMonth(endDate.getMonth() + INVEST_MONTHS);
+      const { data, error } = await supabase
+        .from('investments')
+        .insert([{
+          user_id: user.id,
+          amount: netAmount,
+          start_date: startDate.toISOString(),
+          end_date: endDate.toISOString(),
+          interest_rate: INTEREST_RATE,
+          status: 'active',
+          profit: profit,
+          expected_return: expectedReturn,
+        }])
+        .select();
+      if (error) throw error;
+      setInvestments([data[0], ...investments]);
+      setMaturedSavings(maturedSavings - amount);
+      setInvestAmount('');
+      setShowInvestmentModal(false);
+      setShowSuccessModal(true);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to invest');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const renderInvestment = (item: Investment) => (
@@ -152,7 +229,6 @@ export default function Invest() {
             <Text style={styles.statusText}>{t(`common.statuses.${item.status}`)}</Text>
           </View>
         </View>
-
         <View style={styles.cardDetails}>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>{t('common.profit')}</Text>
@@ -160,14 +236,13 @@ export default function Invest() {
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>{t('common.expectedReturn')}</Text>
-            <Text style={styles.detailValue}>${item.expectedReturn.toFixed(2)}</Text>
+            <Text style={styles.detailValue}>${item.expected_return.toFixed(2)}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>{t('common.end')}</Text>
-            <Text style={styles.detailValue}>{new Date(item.endDate).toLocaleDateString()}</Text>
+            <Text style={styles.detailValue}>{new Date(item.end_date).toLocaleDateString()}</Text>
           </View>
         </View>
-
         <View style={styles.progressBar}>
           <View style={[styles.progressFill, { width: '100%' }]} />
         </View>
@@ -182,221 +257,230 @@ export default function Invest() {
         style={styles.backgroundImage}
         resizeMode="cover"
       >
-      
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.header}>
-              <View style={styles.headerTop}>
+        {loading ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100 }}>
+            <ActivityIndicator size="large" color="#1976D2" />
+            <Text style={{ color: '#1976D2', marginTop: 16 }}>{t('common.loading')}</Text>
+          </View>
+        ) : error ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100 }}>
+            <Text style={{ color: 'red' }}>{error}</Text>
+          </View>
+        ) : (
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
+            <View style={styles.headerTop}>
               <Text style={styles.headerTitle}>{t('common.invest')}</Text>
-                <TouchableOpacity style={styles.notificationButton}>
-                  <Ionicons name="notifications-outline" size={24} color="#1976D2" />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={styles.portfolioCard}>
-              <LinearGradient
-                colors={['#E3F2FD', '#BBDEFB']}
-                style={styles.portfolioGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <View style={styles.portfolioHeader}>
-                  <View>
-                    <Text style={styles.portfolioLabel}>{t('common.totalPortfolio')}</Text>
-                    <Text style={styles.portfolioAmount}>${maturedSavings.toFixed(2)}</Text>
-                  </View>
-                  <View style={styles.portfolioTrend}>
-                    <Ionicons name="trending-up" size={20} color="#1976D2" />
-                    <Text style={styles.trendText}>+2.5% {t('common.thisMonth')}</Text>
-                  </View>
-                </View>
-                <View style={styles.portfolioStats}>
-                  <View style={styles.statItem}>
-                    <Text style={styles.statValue}>${(maturedSavings * 0.4).toFixed(2)}</Text>
-                    <Text style={styles.statLabel}>{t('common.available')}</Text>
-                  </View>
-                  <View style={styles.statDivider} />
-                  <View style={styles.statItem}>
-                    <Text style={styles.statValue}>${(maturedSavings * 0.6).toFixed(2)}</Text>
-                    <Text style={styles.statLabel}>{t('common.invested')}</Text>
-                  </View>
-                </View>
-              </LinearGradient>
-            </View>
-
-            <View style={styles.quickActions}>
-              <TouchableOpacity 
-                style={styles.actionButton}
-                onPress={() => setShowInvestmentModal(true)}
-              >
-                <Image 
-                  source={require('../../assets/home/investment.png')} 
-                  style={styles.actionImage}
-                  resizeMode="contain"
-                />
-                <Text style={styles.actionText}>{t('common.newInvestment')}</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.actionButton}>
-                <Image 
-                  source={require('../../assets/home/analytics.png')} 
-                  style={styles.actionImage}
-                  resizeMode="contain"
-                />
-                <Text style={styles.actionText}>{t('common.analytics')}</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.actionButton}>
-                <Image 
-                  source={require('../../assets/home/reports.png')} 
-                  style={styles.actionImage}
-                  resizeMode="contain"
-                />
-                <Text style={styles.actionText}>{t('common.reports')}</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.opportunitiesSection}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>{t('common.investmentOpportunities')}</Text>
-                <TouchableOpacity style={styles.viewAllButton}>
-                  <Text style={styles.viewAllText}>{t('common.viewAll')}</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#1976D2" />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.opportunitiesList}
-              >
-                <TouchableOpacity style={styles.opportunityCard}>
-                  <LinearGradient
-                    colors={['#E3F2FD', '#BBDEFB']}
-                    style={styles.opportunityGradient}
-                  >
-                    <View style={styles.opportunityHeader}>
-                      <Text style={styles.opportunityTitle}>Fixed Term</Text>
-                      <View style={styles.opportunityBadge}>
-                        <Text style={styles.opportunityBadgeText}>10% APY</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.opportunityDescription}>
-                      {t('common.fixedTermDescription')}
-                    </Text>
-                    <View style={styles.opportunityStats}>
-                      <View style={styles.opportunityStat}>
-                        <Text style={styles.opportunityStatLabel}>{t('common.minimum')}</Text>
-                        <Text style={styles.opportunityStatValue}>$100</Text>
-                      </View>
-                      <View style={styles.opportunityStat}>
-                        <Text style={styles.opportunityStatLabel}>{t('common.term')}</Text>
-                        <Text style={styles.opportunityStatValue}>6 {t('common.months')}</Text>
-                      </View>
-                    </View>
-                  </LinearGradient>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.opportunityCard}>
-                  <LinearGradient
-                    colors={['#E8F5E9', '#C8E6C9']}
-                    style={styles.opportunityGradient}
-                  >
-                    <View style={styles.opportunityHeader}>
-                      <Text style={styles.opportunityTitle}>Growth Fund</Text>
-                      <View style={[styles.opportunityBadge, { backgroundColor: '#4CAF50' }]}>
-                        <Text style={styles.opportunityBadgeText}>15% APY</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.opportunityDescription}>
-                      {t('common.growthFundDescription')}
-                    </Text>
-                    <View style={styles.opportunityStats}>
-                      <View style={styles.opportunityStat}>
-                        <Text style={styles.opportunityStatLabel}>{t('common.minimum')}</Text>
-                        <Text style={styles.opportunityStatValue}>$500</Text>
-                      </View>
-                      <View style={styles.opportunityStat}>
-                        <Text style={styles.opportunityStatLabel}>{t('common.term')}</Text>
-                        <Text style={styles.opportunityStatValue}>12 {t('common.months')}</Text>
-                      </View>
-                    </View>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </ScrollView>
-            </View>
-
-            <View style={styles.investmentsSection}>
-              <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>{t('common.yourInvestments')}</Text>
-                <TouchableOpacity style={styles.viewAllButton}>
-                  <Text style={styles.viewAllText}>{t('common.viewAll')}</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#1976D2" />
-                </TouchableOpacity>
-              </View>
-
-              {investments.length === 0 ? (
-                <View style={styles.emptyState}>
-                  <LinearGradient
-                    colors={['#E3F2FD', '#BBDEFB']}
-                    style={styles.emptyStateGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                  >
-                    <Image 
-                      source={require('../../assets/home/invest2.png')} 
-                      style={styles.emptyStateIcon}
-                    />
-                    <Text style={styles.emptyStateText}>{t('common.noInvestments')}</Text>
-                    <Text style={styles.emptyStateSubtext}>{t('common.startInvesting')}</Text>
-                    <TouchableOpacity 
-                      style={styles.emptyStateButton}
-                      onPress={() => setShowInvestmentModal(true)}
-                    >
-                      <Text style={styles.emptyStateButtonText}>{t('common.startNow')}</Text>
-                    </TouchableOpacity>
-                  </LinearGradient>
-                </View>
-              ) : (
-                investments.map(renderInvestment)
-              )}
-            </View>
-          </ScrollView>
-
-          <View style={styles.bottomMenuContainer}>
-            <View style={styles.menuPartLeft}>
-              <TouchableOpacity style={styles.menuItem} onPress={goHome}>
-                <Image source={require('../../assets/home/home2.png')} style={{ width: 24, height: 24 }} />
-                <Text style={styles.menuText}>{t('common.home')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.menuItem}>
-                <Image source={require('../../assets/home/invest2.png')} style={{ width: 24, height: 24 }} />
-                <Text style={styles.menuText}>{t('common.invest')}</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.investButtonWrapper}>
-              <TouchableOpacity style={styles.investButton} onPress={goSavings}>
-                <Image source={require('../../assets/home/save.png')} style={{ width: 24, height: 24 }} />
-                <Text style={styles.investText}>{t('common.save')}</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.menuPartRight}>
-              <TouchableOpacity style={styles.menuItem} onPress={goInbox}>
-                <Image source={require('../../assets/home/bell2.png')} style={{ width: 19, height: 24 }} />
-                <Text style={styles.menuText}>{t('common.inbox')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.menuItem} onPress={goProfile}>
-                <Image source={require('../../assets/home/profile2.png')} style={{ width: 19, height: 24 }} />
-                <Text style={styles.menuText}>{t('common.profile')}</Text>
+              <TouchableOpacity style={styles.notificationButton}>
+                <Ionicons name="notifications-outline" size={24} color="#1976D2" />
               </TouchableOpacity>
             </View>
           </View>
-      
+
+          <View style={styles.portfolioCard}>
+            <LinearGradient
+              colors={['#E3F2FD', '#BBDEFB']}
+              style={styles.portfolioGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <View style={styles.portfolioHeader}>
+                <View>
+                  <Text style={styles.portfolioLabel}>{t('common.totalPortfolio')}</Text>
+                  <Text style={styles.portfolioAmount}>${maturedSavings.toFixed(2)}</Text>
+                </View>
+                <View style={styles.portfolioTrend}>
+                  <Ionicons name="trending-up" size={20} color="#1976D2" />
+                  <Text style={styles.trendText}>+2.5% {t('common.thisMonth')}</Text>
+                </View>
+              </View>
+              <View style={styles.portfolioStats}>
+                <View style={styles.statItem}>
+                  <Text style={styles.statValue}>${(maturedSavings * 0.4).toFixed(2)}</Text>
+                  <Text style={styles.statLabel}>{t('common.available')}</Text>
+                </View>
+                <View style={styles.statDivider} />
+                <View style={styles.statItem}>
+                  <Text style={styles.statValue}>${totalInvested.toFixed(2)}</Text>
+                  <Text style={styles.statLabel}>{t('common.invested')}</Text>
+                </View>
+              </View>
+            </LinearGradient>
+          </View>
+
+          <View style={styles.quickActions}>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => setShowInvestmentModal(true)}
+            >
+              <Image 
+                source={require('../../assets/home/investment.png')} 
+                style={styles.actionImage}
+                resizeMode="contain"
+              />
+              <Text style={styles.actionText}>{t('common.newInvestment')}</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.actionButton}>
+              <Image 
+                source={require('../../assets/home/analytics.png')} 
+                style={styles.actionImage}
+                resizeMode="contain"
+              />
+              <Text style={styles.actionText}>{t('common.analytics')}</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.actionButton}>
+              <Image 
+                source={require('../../assets/home/reports.png')} 
+                style={styles.actionImage}
+                resizeMode="contain"
+              />
+              <Text style={styles.actionText}>{t('common.reports')}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.opportunitiesSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{t('common.investmentOpportunities')}</Text>
+              <TouchableOpacity style={styles.viewAllButton}>
+                <Text style={styles.viewAllText}>{t('common.viewAll')}</Text>
+                <Ionicons name="chevron-forward" size={16} color="#1976D2" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.opportunitiesList}
+            >
+              <TouchableOpacity style={styles.opportunityCard}>
+                <LinearGradient
+                  colors={['#E3F2FD', '#BBDEFB']}
+                  style={styles.opportunityGradient}
+                >
+                  <View style={styles.opportunityHeader}>
+                    <Text style={styles.opportunityTitle}>Fixed Term</Text>
+                    <View style={styles.opportunityBadge}>
+                      <Text style={styles.opportunityBadgeText}>10% APY</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.opportunityDescription}>
+                    {t('common.fixedTermDescription')}
+                  </Text>
+                  <View style={styles.opportunityStats}>
+                    <View style={styles.opportunityStat}>
+                      <Text style={styles.opportunityStatLabel}>{t('common.minimum')}</Text>
+                      <Text style={styles.opportunityStatValue}>$100</Text>
+                    </View>
+                    <View style={styles.opportunityStat}>
+                      <Text style={styles.opportunityStatLabel}>{t('common.term')}</Text>
+                      <Text style={styles.opportunityStatValue}>6 {t('common.months')}</Text>
+                    </View>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.opportunityCard}>
+                <LinearGradient
+                  colors={['#E8F5E9', '#C8E6C9']}
+                  style={styles.opportunityGradient}
+                >
+                  <View style={styles.opportunityHeader}>
+                    <Text style={styles.opportunityTitle}>Growth Fund</Text>
+                    <View style={[styles.opportunityBadge, { backgroundColor: '#4CAF50' }]}>
+                      <Text style={styles.opportunityBadgeText}>15% APY</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.opportunityDescription}>
+                    {t('common.growthFundDescription')}
+                  </Text>
+                  <View style={styles.opportunityStats}>
+                    <View style={styles.opportunityStat}>
+                      <Text style={styles.opportunityStatLabel}>{t('common.minimum')}</Text>
+                      <Text style={styles.opportunityStatValue}>$500</Text>
+                    </View>
+                    <View style={styles.opportunityStat}>
+                      <Text style={styles.opportunityStatLabel}>{t('common.term')}</Text>
+                      <Text style={styles.opportunityStatValue}>12 {t('common.months')}</Text>
+                    </View>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+
+          <View style={styles.investmentsSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{t('common.yourInvestments')}</Text>
+              <TouchableOpacity style={styles.viewAllButton}>
+                <Text style={styles.viewAllText}>{t('common.viewAll')}</Text>
+                <Ionicons name="chevron-forward" size={16} color="#1976D2" />
+              </TouchableOpacity>
+            </View>
+
+            {investments.length === 0 ? (
+              <View style={styles.emptyState}>
+                <LinearGradient
+                  colors={['#E3F2FD', '#BBDEFB']}
+                  style={styles.emptyStateGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <Image 
+                    source={require('../../assets/home/invest2.png')} 
+                    style={styles.emptyStateIcon}
+                  />
+                  <Text style={styles.emptyStateText}>{t('common.noInvestments')}</Text>
+                  <Text style={styles.emptyStateSubtext}>{t('common.startInvesting')}</Text>
+                  <TouchableOpacity 
+                    style={styles.emptyStateButton}
+                    onPress={() => setShowInvestmentModal(true)}
+                  >
+                    <Text style={styles.emptyStateButtonText}>{t('common.startNow')}</Text>
+                  </TouchableOpacity>
+                </LinearGradient>
+              </View>
+            ) : (
+              investments.map(renderInvestment)
+            )}
+          </View>
+        </ScrollView>
+        )}
+
+        <View style={styles.bottomMenuContainer}>
+          <View style={styles.menuPartLeft}>
+            <TouchableOpacity style={styles.menuItem} onPress={goHome}>
+              <Image source={require('../../assets/home/home2.png')} style={{ width: 24, height: 24 }} />
+              <Text style={styles.menuText}>{t('common.home')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem}>
+              <Image source={require('../../assets/home/invest2.png')} style={{ width: 24, height: 24 }} />
+              <Text style={styles.menuText}>{t('common.invest')}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.investButtonWrapper}>
+            <TouchableOpacity style={styles.investButton} onPress={goSavings}>
+              <Image source={require('../../assets/home/save.png')} style={{ width: 24, height: 24 }} />
+              <Text style={styles.investText}>{t('common.save')}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.menuPartRight}>
+            <TouchableOpacity style={styles.menuItem} onPress={goInbox}>
+              <Image source={require('../../assets/home/bell2.png')} style={{ width: 19, height: 24 }} />
+              <Text style={styles.menuText}>{t('common.inbox')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={goProfile}>
+              <Image source={require('../../assets/home/profile2.png')} style={{ width: 19, height: 24 }} />
+              <Text style={styles.menuText}>{t('common.profile')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </ImageBackground>
 
       <Modal
@@ -912,71 +996,71 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   bottomMenuContainer: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  alignItems: 'flex-end',
-  width: '100%',
-  position: 'absolute',
-  bottom: 0,
-  backgroundColor: 'transparent',
-  zIndex: 10,
-},
-menuPartLeft: {
-  flexDirection: 'row',
-  backgroundColor: '#FFFFFF',
-  paddingVertical: 14,
-  paddingHorizontal: 35,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    width: '100%',
+    position: 'absolute',
+    bottom: 0,
+    backgroundColor: 'transparent',
+    zIndex: 10,
+  },
+  menuPartLeft: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 14,
+    paddingHorizontal: 35,
     borderTopRightRadius: 70,
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: -2 },
-  shadowOpacity: 0.1,
-  shadowRadius: 8,
-  elevation: 8,
-},
-menuPartRight: {
-  flexDirection: 'row',
-  backgroundColor: '#FFFFFF',
-  paddingVertical: 14,
-  paddingHorizontal: 33,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  menuPartRight: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 14,
+    paddingHorizontal: 33,
     borderTopLeftRadius: 70,
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: -2 },
-  shadowOpacity: 0.1,
-  shadowRadius: 8,
-  elevation: 8,
-},
-investButtonWrapper: {
-  position: 'absolute',
-  left: '50%',
-  bottom: 15,
-  transform: [{ translateX: -40 }],
-  zIndex: 20,
-},
-investButton: {
-  alignItems: 'center',
-  justifyContent: 'center',
-  backgroundColor: '#fff',
-  borderRadius: 48,
-  width: 80,
-  height: 80,
-},
-investText: {
-  color: '#000000',
-  fontSize: 14,
-  fontFamily: 'Satoshi',
-  marginTop: 2,
-},
-menuItem: {
-  alignItems: 'center',
-  justifyContent: 'center',
-  marginHorizontal: 8,
-},
-menuText: {
-  fontSize: 14,
-  fontFamily: 'Satoshi',
-  color: '#000000',
-  marginTop: 4,
-},
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  investButtonWrapper: {
+    position: 'absolute',
+    left: '50%',
+    bottom: 15,
+    transform: [{ translateX: -40 }],
+    zIndex: 20,
+  },
+  investButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 48,
+    width: 80,
+    height: 80,
+  },
+  investText: {
+    color: '#000000',
+    fontSize: 14,
+    fontFamily: 'Satoshi',
+    marginTop: 2,
+  },
+  menuItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 8,
+  },
+  menuText: {
+    fontSize: 14,
+    fontFamily: 'Satoshi',
+    color: '#000000',
+    marginTop: 4,
+  },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1118,7 +1202,7 @@ menuText: {
   },
   investButtonTextDisabled: {
     color: '#FFFFFF',
-},
+  },
   gradient: {
     flex: 1,
   },

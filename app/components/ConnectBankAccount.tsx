@@ -5,7 +5,6 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { supabase } from '../../lib/supabase';
 
 interface ConnectBankAccountProps {
   onSuccess: (accountDetails: {
@@ -35,14 +34,12 @@ export default function ConnectBankAccount({ onSuccess, onCancel }: ConnectBankA
 
       setIsLoading(true);
 
-      // Get the user from AsyncStorage
       const userStr = await AsyncStorage.getItem('user');
       if (!userStr) {
         throw new Error('User not found');
       }
       const user = JSON.parse(userStr);
 
-      // Make API call to create payment method
       const response = await fetch('http://localhost:3000/api/create-payment-method', {
         method: 'POST',
         headers: {
@@ -66,24 +63,8 @@ export default function ConnectBankAccount({ onSuccess, onCancel }: ConnectBankA
 
       const data = await response.json();
 
-      // Store payment method in Supabase
-      const { error: dbError } = await supabase
-        .from('payment_methods')
-        .insert({
-          user_id: user.id,
-          type: 'bank_account',
-          stripe_payment_method_id: data.paymentMethodId,
-          stripe_customer_id: data.customerId,
-          last4: data.last4,
-          bank_name: bankName,
-          account_type: accountType,
-          is_verified: false
-        });
-
-      if (dbError) throw dbError;
-
+    
       if (data.requiresVerification) {
-        // Show verification message and navigate to verification page
         Alert.alert(
           'Verification Required',
           'Your bank account has been connected and is pending verification. You will receive two small deposits in your account within 1-2 business days. Please verify these amounts to complete the setup.',
@@ -91,7 +72,6 @@ export default function ConnectBankAccount({ onSuccess, onCancel }: ConnectBankA
             {
               text: 'OK',
               onPress: () => {
-                // Pass the account details to onSuccess
                 onSuccess({
                   accountNumber,
                   routingNumber,
@@ -99,7 +79,6 @@ export default function ConnectBankAccount({ onSuccess, onCancel }: ConnectBankA
                   accountType,
                 });
                 
-                // Navigate to verification page
                 router.push({
                   pathname: '../payments/verify-bank',
                   params: {
@@ -113,16 +92,12 @@ export default function ConnectBankAccount({ onSuccess, onCancel }: ConnectBankA
           ]
         );
       } else {
-        // Pass the account details to onSuccess
         onSuccess({
           accountNumber,
           routingNumber,
           bankName,
           accountType,
         });
-        
-        // Then navigate to payments page
-        router.push('../payments/payments');
       }
     } catch (error: any) {
       console.error('Bank account connection error:', error);

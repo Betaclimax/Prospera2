@@ -34,11 +34,11 @@ export default function Payments() {
   const [showAddMethodModal, setShowAddMethodModal] = useState(false);
   const [showConnectBank, setShowConnectBank] = useState(false);
   const [showConnectCard, setShowConnectCard] = useState(false);
+  const [showTransactionsModal, setShowTransactionsModal] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [user, setUser] = useState<any>(null);
 
-  // Load user and data when component mounts
   useEffect(() => {
     loadUser();
   }, []);
@@ -85,8 +85,7 @@ export default function Payments() {
           payment_method:payment_methods(last4, bank_name)
         `)
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(5);
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       setTransactions(data || []);
@@ -147,9 +146,9 @@ export default function Payments() {
     try {
       const paymentService = PaymentService.getInstance();
       await paymentService.connectDebitCard(cardDetails);
-      await loadPaymentMethods();
       setShowConnectCard(false);
       setShowAddMethodModal(false);
+      await loadPaymentMethods();
     } catch (error) {
       console.error('Error connecting debit card:', error);
       Alert.alert(t('common.error'), t('common.failedToConnectCard'));
@@ -180,16 +179,15 @@ export default function Payments() {
   };
 
   const handleSelectMethod = (method: PaymentMethod) => {
-    // Navigate back to savings page with the selected method
     router.push({
       pathname: '../save/savings',
-      params: { 
+      params: {
         openModal: 'true',
         selectedMethodId: method.id,
         selectedMethodType: method.type,
         selectedMethodLast4: method.last4,
-        selectedMethodName: method.type === 'bank_account' 
-          ? method.bankAccount?.bankName 
+        selectedMethodName: method.type === 'bank_account'
+          ? method.bankAccount?.bankName
           : 'Card'
       }
     });
@@ -221,8 +219,8 @@ export default function Payments() {
 
       {paymentMethods.length === 0 ? (
         <View style={styles.emptyState}>
-          <Image 
-            source={require('../../assets/home/cards.png')} 
+          <Image
+            source={require('../../assets/home/cards.png')}
             style={styles.emptyStateIcon}
           />
           <Text style={styles.emptyStateText}>{t('common.noPaymentMethods')}</Text>
@@ -241,7 +239,7 @@ export default function Payments() {
       ) : (
         <View style={styles.methodsContainer}>
           {paymentMethods.map((method) => (
-            <TouchableOpacity 
+            <TouchableOpacity
               key={method.id}
               style={styles.methodCard}
               onPress={() => handleMethodPress(method)}
@@ -261,7 +259,7 @@ export default function Payments() {
                   </Text>
                   <Text style={styles.methodDetails}>**** {method.last4}</Text>
                 </View>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.selectButton}
                   onPress={() => handleSelectMethod(method)}
                 >
@@ -279,31 +277,31 @@ export default function Payments() {
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>{t('common.recentTransactions')}</Text>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={() => setShowTransactionsModal(true)}>
           <Text style={styles.viewAllText}>{t('common.viewAll')}</Text>
         </TouchableOpacity>
       </View>
 
       {transactions.length === 0 ? (
         <View style={styles.emptyState}>
-          <Image 
-            source={require('../../assets/home/bell2.png')} 
+          <Image
+            source={require('../../assets/home/transaction.png')}
             style={styles.emptyStateIcon}
           />
           <Text style={styles.emptyStateText}>{t('common.noTransactions')}</Text>
         </View>
       ) : (
         <View style={styles.transactionsContainer}>
-          {transactions.map((transaction) => (
+          {transactions.slice(0, 3).map((transaction) => (
             <View key={transaction.id} style={styles.transactionItem}>
               <View style={styles.transactionIcon}>
-                <Image 
+                <Image
                   source={
-                    transaction.type === 'deposit' 
+                    transaction.type === 'deposit'
                       ? require('../../assets/home/deposit.png')
                       : require('../../assets/home/withdraw.png')
-                  } 
-                  style={styles.transactionIconImage} 
+                  }
+                  style={styles.transactionIconImage}
                 />
               </View>
               <View style={styles.transactionInfo}>
@@ -314,9 +312,11 @@ export default function Payments() {
                   {formatDate(transaction.created_at)}
                 </Text>
                 <Text style={styles.transactionDetails}>
-                  {transaction.payment_method.bank_name 
+                  {transaction.payment_method?.bank_name
                     ? `${transaction.payment_method.bank_name} (${transaction.payment_method.last4})`
-                    : `Card ending in ${transaction.payment_method.last4}`}
+                    : transaction.payment_method?.last4
+                      ? `Card ending in ${transaction.payment_method.last4}`
+                      : t('common.unknownPaymentMethod')}
                 </Text>
               </View>
               <View style={styles.transactionAmountContainer}>
@@ -372,7 +372,6 @@ export default function Payments() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={goBack} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color="#000" style={styles.backIcon} />
@@ -412,12 +411,77 @@ export default function Payments() {
 
       {/* Content */}
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {renderQuickActions()}
-        {renderPaymentMethods()}
-        {renderRecentTransactions()}
+        {activeTab === 'methods' ? (
+          <>
+            {renderQuickActions()}
+            {renderPaymentMethods()}
+            {renderRecentTransactions()}
+          </>
+        ) : (
+          <View style={styles.transactionsSection}>
+
+            {transactions.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Image
+                  source={require('../../assets/home/transaction.png')}
+                  style={styles.emptyStateIcon}
+                />
+                <Text style={styles.emptyStateText}>{t('common.noTransactions')}</Text>
+              </View>
+            ) : (
+              <View style={styles.transactionsContainer}>
+                {transactions.map((transaction) => (
+                  <View key={transaction.id} style={styles.transactionItem}>
+                    <View style={styles.transactionIcon}>
+                      <Image
+                        source={
+                          transaction.type === 'deposit'
+                            ? require('../../assets/home/deposit.png')
+                            : require('../../assets/home/withdraw.png')
+                        }
+                        style={styles.transactionIconImage}
+                      />
+                    </View>
+                    <View style={styles.transactionInfo}>
+                      <Text style={styles.transactionTitle}>
+                        {t(`common.transactionTypes.${transaction.type}`)}
+                      </Text>
+                      <Text style={styles.transactionDate}>
+                        {formatDate(transaction.created_at)}
+                      </Text>
+                      <Text style={styles.transactionDetails}>
+                        {transaction.payment_method?.bank_name
+                          ? `${transaction.payment_method.bank_name} (${transaction.payment_method.last4})`
+                          : transaction.payment_method?.last4
+                            ? `Card ending in ${transaction.payment_method.last4}`
+                            : t('common.unknownPaymentMethod')}
+                      </Text>
+                    </View>
+                    <View style={styles.transactionAmountContainer}>
+                      <Text style={[
+                        styles.transactionAmount,
+                        { color: transaction.type === 'deposit' ? '#4CAF50' : '#F44336' }
+                      ]}>
+                        {transaction.type === 'deposit' ? '+' : '-'}
+                        {formatAmount(transaction.amount)}
+                      </Text>
+                      <View style={[
+                        styles.statusBadge,
+                        { backgroundColor: getStatusColor(transaction.status) }
+                      ]}>
+                        <Text style={styles.statusText}>
+                          {t(`common.statusP.${transaction.status}`)}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
       </ScrollView>
 
-      {/* Payment Method Details Modal */}
       {selectedMethod && (
         <PaymentMethodDetails
           visible={showMethodDetails}
@@ -427,7 +491,6 @@ export default function Payments() {
         />
       )}
 
-      {/* Add Payment Method Modal */}
       <Modal
         visible={showAddMethodModal}
         transparent={true}
@@ -491,7 +554,6 @@ export default function Payments() {
         </View>
       </Modal>
 
-      {/* Connect Debit Card Modal */}
       <Modal
         visible={showConnectCard}
         animationType="slide"
@@ -504,6 +566,73 @@ export default function Payments() {
               onSuccess={(cardDetails) => handleCardSuccess(cardDetails)}
               onCancel={() => setShowConnectCard(false)}
             />
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showTransactionsModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowTransactionsModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={[styles.modalContent, styles.transactionsModalContent]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{t('common.allTransactions')}</Text>
+              <TouchableOpacity onPress={() => setShowTransactionsModal(false)}>
+                <Ionicons name="close" size={24} color="#000" style={styles.backIcon} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.transactionsList}>
+              {transactions.map((transaction) => (
+                <View key={transaction.id} style={styles.transactionItem}>
+                  <View style={styles.transactionIcon}>
+                    <Image
+                      source={
+                        transaction.type === 'deposit'
+                          ? require('../../assets/home/deposit.png')
+                          : require('../../assets/home/withdraw.png')
+                      }
+                      style={styles.transactionIconImage}
+                    />
+                  </View>
+                  <View style={styles.transactionInfo}>
+                    <Text style={styles.transactionTitle}>
+                      {t(`common.transactionTypes.${transaction.type}`)}
+                    </Text>
+                    <Text style={styles.transactionDate}>
+                      {formatDate(transaction.created_at)}
+                    </Text>
+                    <Text style={styles.transactionDetails}>
+                      {transaction.payment_method?.bank_name
+                        ? `${transaction.payment_method.bank_name} (${transaction.payment_method.last4})`
+                        : transaction.payment_method?.last4
+                          ? `Card ending in ${transaction.payment_method.last4}`
+                          : t('common.unknownPaymentMethod')}
+                    </Text>
+                  </View>
+                  <View style={styles.transactionAmountContainer}>
+                    <Text style={[
+                      styles.transactionAmount,
+                      { color: transaction.type === 'deposit' ? '#4CAF50' : '#F44336' }
+                    ]}>
+                      {transaction.type === 'deposit' ? '+' : '-'}
+                      {formatAmount(transaction.amount)}
+                    </Text>
+                    <View style={[
+                      styles.statusBadge,
+                      { backgroundColor: getStatusColor(transaction.status) }
+                    ]}>
+                      <Text style={styles.statusText}>
+                        {t(`common.statusP.${transaction.status}`)}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -856,7 +985,6 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     marginBottom: 16,
-    opacity: 0.5,
   },
   emptyStateText: {
     fontSize: 18,
@@ -885,5 +1013,41 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontFamily: 'Satoshi-Bold',
+  },
+  feeText: {
+    fontSize: 12,
+    fontFamily: 'Satoshi-Regular',
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 4,
+  },
+  transactionsModalContent: {
+    width: '95%',
+    maxHeight: '80%',
+  },
+  transactionsList: {
+    maxHeight: '100%',
+  },
+  transactionsSection: {
+    flex: 1,
+    paddingBottom: 20,
+  },
+  transactionsHeader: {
+    marginBottom: 20,
+  },
+  transactionFilters: {
+    flexDirection: 'row',
+    marginTop: 15,
+    gap: 10,
+  },
+  filterButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F5F5F5',
+  },
+  filterButtonText: {
+    fontSize: 14,
+    fontFamily: 'Satoshi-Medium',
+    color: '#666',
   },
 }); 

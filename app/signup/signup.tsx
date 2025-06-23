@@ -226,7 +226,6 @@ export default function signup() {
     country.code.includes(searchQuery)
   );
 
-  // Animate text when language changes
   useEffect(() => {
     Animated.sequence([
       Animated.timing(fadeAnim, {
@@ -356,7 +355,6 @@ export default function signup() {
   };
 
   const handleForgetPassword = () => {
-    // router.push('/forget-password'); 
   };
 
   const handleBack = () => {
@@ -370,7 +368,6 @@ export default function signup() {
 
   return (
     <View style={styles.container}>
-      {/* Back Button */}
       <TouchableOpacity style={styles.backButton} onPress={handleBack}>
         <Image
           source={require('@/assets/home/Left Icon.png')}
@@ -378,8 +375,6 @@ export default function signup() {
           resizeMode="contain"
         />
       </TouchableOpacity>
-
-      {/* Top Image Section */}
       <Image
         source={require('@/assets/images/logo.png')}
         style={styles.welcomeImage}
@@ -388,9 +383,7 @@ export default function signup() {
         <View>
           <Text style={styles.headtext}>{t('common.createaccount')}</Text>
         </View>
-      {/* Form Container */}
       <View style={styles.formContainer}>
-        {/* Full name Input */}
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.input}
@@ -402,7 +395,6 @@ export default function signup() {
           />
           <Text style={styles.icon}>👤</Text>
         </View>
-        {/* Email Input */}
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.input}
@@ -415,7 +407,6 @@ export default function signup() {
           />
           <Text style={styles.icon}>✉️</Text>
         </View>
-        {/* Country Code Modal */}
         <Modal
           visible={showCountryModal}
           transparent={true}
@@ -430,8 +421,6 @@ export default function signup() {
                   <Text style={styles.closeButton}>✕</Text>
                 </TouchableOpacity>
               </View>
-              
-              {/* Search Input */}
               <View style={styles.searchContainer}>
                 <TextInput
                   style={styles.searchInput}
@@ -460,7 +449,6 @@ export default function signup() {
             </View>
           </View>
         </Modal>
-        {/* Phone number Input */}
         <View style={styles.inputContainer}>
           <TouchableOpacity 
             style={styles.countryCodeButton}
@@ -478,7 +466,6 @@ export default function signup() {
           />
           <Text style={styles.icon}>📞</Text>
         </View>
-        {/* Password Input */}
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.input}
@@ -490,7 +477,6 @@ export default function signup() {
           />
           <Text style={styles.icon}>🔒</Text>
         </View>
-        {/* Password confirm Input */}
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.input}

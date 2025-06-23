@@ -4,7 +4,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Animated, Image, ImageBackground, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-// Background images array
 const backgroundImages = [
   require('../../assets/backgrounds/bg1.png'),
   require('../../assets/backgrounds/bg2.png'),
@@ -72,9 +71,7 @@ export default function Inbox() {
         style={styles.backgroundImage}
         resizeMode="cover"
       >
-       
           <ScrollView style={styles.mainContent} contentContainerStyle={styles.scrollContent}>
-            {/* Welcome Section */}
             <View style={styles.welcomeSection}>
               <View style={styles.welcomeHeader}>
                 <View style={styles.welcomeContent}>
@@ -100,8 +97,6 @@ export default function Inbox() {
                 </Text>
               </TouchableOpacity>
             </View>
-
-            {/* Content Section Based on Active Tab */}
             <View style={styles.contentContainer}>
               {activeTab === 'Notifications' ? (
                 <Text style={styles.placeholderText}>
@@ -113,11 +108,8 @@ export default function Inbox() {
                 </Text>
               )}
             </View>
-            {/* Add extra space so content doesn't hide behind menu */}
             <View style={{ height: 120 }} />
           </ScrollView>
-
-          {/* Bottom Menu Bar - OUTSIDE the ScrollView */}
           <View style={styles.bottomMenuContainer}>
             {/* Left menu part */}
             <View style={styles.menuPartLeft}>
@@ -134,8 +126,6 @@ export default function Inbox() {
                 </Animated.Text>
               </TouchableOpacity>
             </View>
-
-            {/* Center Invest button */}
             <View style={styles.investButtonWrapper}>
               <TouchableOpacity style={styles.investButton} onPress={goSavings}>
                 <Image source={require('../../assets/home/save.png')} style={{ width: 32, height: 32 }} />
@@ -144,8 +134,6 @@ export default function Inbox() {
                 </Animated.Text>
               </TouchableOpacity>
             </View>
-
-            {/* Right menu part */}
             <View style={styles.menuPartRight}>
               <TouchableOpacity style={styles.menuItem}>
                 <Image source={require('../../assets/home/bell2.png')} style={{ width: 19, height: 24 }} />

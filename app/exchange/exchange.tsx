@@ -96,7 +96,7 @@ export default function Exchange() {
     }
     const baseAmount = parseFloat(amount);
     const rate = toCurrency.rate / fromCurrency.rate;
-    const fee = baseAmount * 0.01; // 1% fee
+    const fee = baseAmount * 0.01;
     setEstimatedAmount((baseAmount * rate) - fee);
   };
 

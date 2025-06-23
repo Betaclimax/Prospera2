@@ -7,12 +7,14 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Animated, Dimensions, Easing, FlatList, Image, ImageBackground, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { supabase } from '../../lib/supabase';
 import ConnectBankAccount from '../components/ConnectBankAccount';
 import ConnectDebitCard from '../components/ConnectDebitCard';
 import PaymentService, { PaymentMethod } from '../services/payment';
 
 const TRANSACTION_FEE = 0.02;
+const DEBIT_CARD_FEE = 0.03;
 const INVESTMENT_INTEREST_RATE = 0.10;
 const LOAN_INTEREST_RATE = 0.15;
 const USER_INVESTMENT_RETURN = 0.10;
@@ -72,8 +74,8 @@ interface SavingsModalProps {
   onConfirm: () => void;
   depositAmount: string;
   setDepositAmount: (value: string) => void;
-  savingsDuration: number;
-  setSavingsDuration: (value: number) => void;
+  savingsDuration: number | null;
+  setSavingsDuration: (value: number | null) => void;
   transactionFee: number;
   paymentMethods: PaymentMethod[];
   selectedPaymentMethod: string | null;
@@ -102,8 +104,14 @@ const SavingsModal = ({
     router.push('../payments/payments');
   };
 
-  // Get the selected payment method details
   const selectedMethod = paymentMethods.find(method => method.id === selectedPaymentMethod);
+  
+  const getTransactionFee = () => {
+    if (!selectedMethod) return TRANSACTION_FEE;
+    return selectedMethod.type === 'bank_account' ? TRANSACTION_FEE : DEBIT_CARD_FEE;
+  };
+
+  const currentFee = getTransactionFee();
 
   return (
     <Modal
@@ -121,73 +129,112 @@ const SavingsModal = ({
             </TouchableOpacity>
           </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>{t('common.depositAmount')}</Text>
-            <View style={styles.amountInputContainer}>
-              <Text style={styles.currencySymbol}>$</Text>
-              <TextInput
-                style={styles.amountInput}
-                value={depositAmount}
-                onChangeText={setDepositAmount}
-                keyboardType="numeric"
-                placeholder="0.00"
-                placeholderTextColor="#999"
-              />
+          <ScrollView 
+            style={styles.modalScrollView}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.modalScrollContent}
+          >
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>{t('common.depositAmount')}</Text>
+              <View style={styles.amountInputContainer}>
+                <Text style={styles.currencySymbol}>$</Text>
+                <TextInput
+                  style={styles.amountInput}
+                  value={depositAmount}
+                  onChangeText={setDepositAmount}
+                  keyboardType="numeric"
+                  placeholder="0.00"
+                  placeholderTextColor="#999"
+                />
+              </View>
             </View>
-          </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>{t('common.savingsDuration')}</Text>
-            {Platform.OS === 'ios' ? (
-              <View style={styles.iosPickerContainer}>
-                <Picker
-                  selectedValue={savingsDuration}
-                  onValueChange={(value) => setSavingsDuration(value)}
-                  style={styles.iosPicker}
-                >
-                  {weeks.map((week) => (
-                    <Picker.Item key={week} label={`${week} ${t('common.weeks')}`} value={week} />
-                  ))}
-                </Picker>
-              </View>
-            ) : (
-              <View style={styles.androidPickerContainer}>
-                <Picker
-                  selectedValue={savingsDuration}
-                  onValueChange={(value) => setSavingsDuration(value)}
-                  style={styles.androidPicker}
-                >
-                  {weeks.map((week) => (
-                    <Picker.Item key={week} label={`${week} ${t('common.weeks')}`} value={week} />
-                  ))}
-                </Picker>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>{t('common.paymentMethod')}</Text>
-            {paymentMethods.length > 0 ? (
-              <View style={styles.paymentMethodContainer}>
-                {paymentMethods.map((method) => (
-                  <TouchableOpacity
-                    key={method.id}
-                    style={[
-                      styles.paymentMethodButton,
-                      selectedPaymentMethod === method.id && styles.selectedPaymentMethod,
-                    ]}
-                    onPress={() => setSelectedPaymentMethod(method.id)}
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>{t('common.savingsDuration')}</Text>
+              {Platform.OS === 'ios' ? (
+                <View style={styles.iosPickerContainer}>
+                  <Picker
+                    selectedValue={savingsDuration}
+                    onValueChange={(value) => setSavingsDuration(value)}
+                    style={styles.iosPicker}
                   >
-                    <Text style={[
-                      styles.paymentMethodText,
-                      selectedPaymentMethod === method.id && styles.selectedPaymentMethodText,
-                    ]}>
-                      {method.type === 'bank_account' 
-                        ? `${method.bankAccount?.bankName} (****${method.last4})`
-                        : `Card (****${method.last4})`}
-                    </Text>
+                    <Picker.Item 
+                      label="Select duration" 
+                      value={null} 
+                      color="#999"
+                    />
+                    {weeks.map((week) => (
+                      <Picker.Item 
+                        key={week} 
+                        label={`${week} ${t('common.weeks')}`} 
+                        value={week} 
+                      />
+                    ))}
+                  </Picker>
+                </View>
+              ) : (
+                <View style={styles.androidPickerContainer}>
+                  <Picker
+                    selectedValue={savingsDuration}
+                    onValueChange={(value) => setSavingsDuration(value)}
+                    style={styles.androidPicker}
+                  >
+                    <Picker.Item 
+                      label="Select duration" 
+                      value={null} 
+                      color="#999"
+                    />
+                    {weeks.map((week) => (
+                      <Picker.Item 
+                        key={week} 
+                        label={`${week} ${t('common.weeks')}`} 
+                        value={week} 
+                      />
+                    ))}
+                  </Picker>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>{t('common.paymentMethod')}</Text>
+              {paymentMethods.length > 0 ? (
+                <View style={styles.paymentMethodContainer}>
+                  {paymentMethods.map((method) => (
+                    <TouchableOpacity
+                      key={method.id}
+                      style={[
+                        styles.paymentMethodButton,
+                        selectedPaymentMethod === method.id && styles.selectedPaymentMethod,
+                      ]}
+                      onPress={() => setSelectedPaymentMethod(method.id)}
+                    >
+                      <Text style={[
+                        styles.paymentMethodText,
+                        selectedPaymentMethod === method.id && styles.selectedPaymentMethodText,
+                      ]}>
+                        {method.type === 'bank_account' 
+                          ? `${method.bankAccount?.bankName} (****${method.last4})`
+                          : `Card (****${method.last4})`}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                  <TouchableOpacity
+                    style={styles.connectPaymentButton}
+                    onPress={handleGoToPayments}
+                  >
+                    <LinearGradient
+                      colors={['#2196F3', '#1976D2']}
+                      style={styles.connectPaymentGradient}
+                    >
+                      <Ionicons name="add-circle-outline" size={24} color="#fff" />
+                      <Text style={styles.connectPaymentText}>
+                        {t('common.addNewPaymentMethod')}
+                      </Text>
+                    </LinearGradient>
                   </TouchableOpacity>
-                ))}
+                </View>
+              ) : (
                 <TouchableOpacity
                   style={styles.connectPaymentButton}
                   onPress={handleGoToPayments}
@@ -196,56 +243,44 @@ const SavingsModal = ({
                     colors={['#2196F3', '#1976D2']}
                     style={styles.connectPaymentGradient}
                   >
-                    <Ionicons name="add-circle-outline" size={24} color="#fff" />
+                    <Ionicons name="card-outline" size={24} color="#fff" />
                     <Text style={styles.connectPaymentText}>
-                      {t('common.addNewPaymentMethod')}
+                      {t('common.goToPayments')}
                     </Text>
                   </LinearGradient>
                 </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={styles.summaryContainer}>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>{t('common.transactionFee')}</Text>
+                <Text style={styles.summaryValue}>${(Number(depositAmount || 0) * currentFee).toFixed(2)}</Text>
               </View>
-            ) : (
-              <TouchableOpacity
-                style={styles.connectPaymentButton}
-                onPress={handleGoToPayments}
-              >
-                <LinearGradient
-                  colors={['#2196F3', '#1976D2']}
-                  style={styles.connectPaymentGradient}
-                >
-                  <Ionicons name="card-outline" size={24} color="#fff" />
-                  <Text style={styles.connectPaymentText}>
-                    {t('common.goToPayments')}
-                  </Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <View style={styles.summaryContainer}>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>{t('common.transactionFee')}</Text>
-              <Text style={styles.summaryValue}>${(Number(depositAmount || 0) * transactionFee).toFixed(2)}</Text>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>{t('common.netAmount')}</Text>
+                <Text style={styles.summaryValue}>
+                  ${(Number(depositAmount || 0) * (1 - currentFee)).toFixed(2)}
+                </Text>
+              </View>
             </View>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>{t('common.netAmount')}</Text>
-              <Text style={styles.summaryValue}>
-                ${(Number(depositAmount || 0) * (1 - transactionFee)).toFixed(2)}
-              </Text>
-            </View>
-          </View>
 
-          <TouchableOpacity
-            style={styles.saveButton}
-            onPress={onConfirm}
-            disabled={!depositAmount || Number(depositAmount) <= 0 || !selectedPaymentMethod}
-          >
-            <LinearGradient
-              colors={['#2196F3', '#1976D2']}
-              style={styles.saveButtonGradient}
+            <TouchableOpacity
+              style={[
+                styles.saveButton,
+                (!depositAmount || !savingsDuration || !selectedPaymentMethod) && styles.disabledButton
+              ]}
+              onPress={onConfirm}
+              disabled={!depositAmount || !savingsDuration || !selectedPaymentMethod}
             >
-              <Text style={styles.saveButtonText}>{t('common.startSavings')}</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+              <LinearGradient
+                colors={['#2196F3', '#1976D2']}
+                style={styles.saveButtonGradient}
+              >
+                <Text style={styles.saveButtonText}>{t('common.startSavings')}</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </ScrollView>
         </View>
       </BlurView>
     </Modal>
@@ -468,17 +503,147 @@ const backgroundImages = [
   require('../../assets/backgrounds/bg22.png'),
 ];
 
+interface SuccessModalProps {
+  visible: boolean;
+  onClose: () => void;
+  amount: number;
+  duration: number;
+}
+
+const SuccessModal = ({ visible, onClose, amount, duration }: SuccessModalProps) => {
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+  const { t, i18n } = useTranslation();
+  const checkmarkAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+          easing: Easing.elastic(1.2),
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(checkmarkAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+          easing: Easing.bezier(0.4, 0, 0.2, 1),
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(scaleAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(checkmarkAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [visible]);
+
+  if (!visible) return null;
+
+  const checkmarkScale = checkmarkAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+
+  return (
+    <View style={styles.successModalOverlay}>
+      <Animated.View
+        style={[
+          styles.successModalContent,
+          {
+            transform: [{ scale: scaleAnim }],
+            opacity: opacityAnim,
+          },
+        ]}
+      >
+        <View style={styles.successIconContainer}>
+          <View style={styles.checkmarkCircle}>
+            <Animated.View 
+              style={[
+                styles.checkmark,
+                {
+                  transform: [{ scale: checkmarkScale }],
+                  opacity: checkmarkAnim,
+                }
+              ]}
+            >
+              <Ionicons name="checkmark" size={60} color="#2196F3" />
+            </Animated.View>
+          </View>
+        </View>
+        <Text style={styles.successTitle}>{t('common.Savings Plan Created!')}</Text>
+        <Text style={styles.successSubtitle}>
+          {t('common.You have successfully started saving')} ${amount.toFixed(2)} {t('common.for')} {duration} {t('common.weeks')}
+        </Text>
+        <View style={styles.successDetails}>
+          <View style={styles.successDetailItem}>
+            <Ionicons name="calendar-outline" size={24} color="#2196F3" />
+            <Text style={styles.successDetailText}>
+              {t('common.Start Date')}: {new Date().toLocaleDateString()}
+            </Text>
+          </View>
+          <View style={styles.successDetailItem}>
+            <Ionicons name="trending-up-outline" size={24} color="#2196F3" />
+            <Text style={styles.successDetailText}>
+              {t('common.Maturity Date')}: {new Date(Date.now() + duration * 7 * 24 * 60 * 60 * 1000).toLocaleDateString()}
+            </Text>
+          </View>
+        </View>
+        <TouchableOpacity
+          style={styles.successButton}
+          onPress={onClose}
+        >
+          <LinearGradient
+            colors={['#2196F3', '#1976D2']}
+            style={styles.successButtonGradient}
+          >
+            <Text style={styles.successButtonText}>{t('common.Continue')}</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </Animated.View>
+    </View>
+  );
+};
+
+// Add new interfaces for matured savings
+interface MaturedSavingsPlan extends SavingsPlan {
+  status: 'pending_action' | 'withdrawn' | 'invested';
+  withdrawal_amount?: number;
+  investment_amount?: number;
+  action_date?: string;
+}
+
 export default function Savings() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { t, i18n } = useTranslation();
   const fadeAnim = useRef(new Animated.Value(1)).current;
-  const [user, setUser] = useState(mockUser);
+  const [user, setUser] = useState<any>(null);
   const [depositAmount, setDepositAmount] = useState('');
-  const [savingsDuration, setSavingsDuration] = useState(10); 
+  const [savingsDuration, setSavingsDuration] = useState<number | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [activeSavingsPlans, setActiveSavingsPlans] = useState<SavingsPlan[]>([]);
-  const [maturedPlans, setMaturedPlans] = useState<SavingsPlan[]>([]);
+  const [maturedPlans, setMaturedPlans] = useState<MaturedSavingsPlan[]>([]);
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [loanEligible, setLoanEligible] = useState(false);
   const [activeTab, setActiveTab] = useState('Overview');
@@ -491,6 +656,12 @@ export default function Savings() {
   const [selectedBackground, setSelectedBackground] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successDetails, setSuccessDetails] = useState({ amount: 0, duration: 0 });
+  const [showAllActiveSavings, setShowAllActiveSavings] = useState(false);
+  const [selectedMaturedPlanId, setSelectedMaturedPlanId] = useState<number | null>(null);
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [investAmount, setInvestAmount] = useState('');
 
   useEffect(() => {
     Animated.sequence([
@@ -532,7 +703,6 @@ export default function Savings() {
       }
     }
 
-    // Handle return from bank verification
     if (params.verified === 'true' && params.paymentMethodId && params.depositAmount && params.savingsDuration) {
       const startDate = new Date();
       const maturityDate = new Date(startDate);
@@ -609,35 +779,91 @@ export default function Savings() {
 
   useEffect(() => {
     const accountAgeInMonths =
-      (new Date().getTime() - new Date(user.accountCreationDate).getTime()) /
+      (new Date().getTime() - new Date(user?.accountCreationDate).getTime()) /
       (1000 * 60 * 60 * 24 * 30);
     if (accountAgeInMonths >= 6) {
       setLoanEligible(true);
     }
-  }, [user.accountCreationDate]);
+  }, [user?.accountCreationDate]);
 
   useEffect(() => {
     const interval = setInterval(() => {
       const now = new Date();
-      const updatedPlans = activeSavingsPlans.filter((plan) => new Date(plan.maturityDate) > now);
-      const newMaturedPlans = activeSavingsPlans.filter((plan) => new Date(plan.maturityDate) <= now);
+      const newMaturedPlans = activeSavingsPlans.filter(plan => new Date(plan.maturityDate) <= now);
+      const updatedActivePlans = activeSavingsPlans.filter(plan => new Date(plan.maturityDate) > now);
+      setMaturedPlans(prev => {
+        const prevIds = new Set(prev.map(p => p.id));
+        const uniqueNewMatured = newMaturedPlans.filter(plan => !prevIds.has(plan.id));
+        return [
+          ...prev,
+          ...uniqueNewMatured.map(plan => ({
+            ...plan,
+            status: 'pending_action' as const,
+            withdrawal_amount: undefined,
+            investment_amount: undefined,
+            action_date: undefined
+          }))
+        ];
+      });
 
-      setActiveSavingsPlans(updatedPlans);
-      setMaturedPlans([...maturedPlans, ...newMaturedPlans]);
-    }, 1000);
+      setActiveSavingsPlans(updatedActivePlans);
+    });
 
     return () => clearInterval(interval);
-  }, [activeSavingsPlans, maturedPlans]);
+  }, [activeSavingsPlans]);
 
   const startSavingsPlan = async () => {
     try {
-      if (!depositAmount || isNaN(Number(depositAmount)) || Number(depositAmount) <= 0) {
-        Alert.alert(t('common.error'), t('common.enterValidAmount'));
+      if (!depositAmount || parseFloat(depositAmount) <= 0) {
+        Toast.show({
+          type: 'error',
+          text1: t('common.error'),
+          text2: t('common.invalidAmount'),
+          position: 'top',
+          visibilityTime: 3000,
+          autoHide: true,
+        });
+        return;
+      }
+
+      if (!savingsDuration) {
+        Toast.show({
+          type: 'error',
+          text1: t('common.error'),
+          text2: 'Please select a savings duration',
+          position: 'top',
+          visibilityTime: 3000,
+          autoHide: true,
+        });
         return;
       }
 
       if (!selectedPaymentMethod) {
-        Alert.alert(t('common.error'), t('common.selectPaymentMethod'));
+        Toast.show({
+          type: 'error',
+          text1: t('common.error'),
+          text2: t('common.selectPaymentMethod'),
+          position: 'top',
+          visibilityTime: 3000,
+          autoHide: true,
+        });
+        return;
+      }
+
+      const startDate = new Date();
+      const maturityDate = new Date(startDate);
+      maturityDate.setDate(startDate.getDate() + (savingsDuration * 7));
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        Toast.show({
+          type: 'error',
+          text1: t('common.error'),
+          text2: t('common.notLoggedIn'),
+          position: 'top',
+          visibilityTime: 3000,
+          autoHide: true,
+        });
         return;
       }
 
@@ -648,7 +874,6 @@ export default function Savings() {
         throw new Error('Selected payment method not found');
       }
 
-      // If it's a bank account that requires verification
       if (selectedMethod.type === 'bank_account' && !selectedMethod.is_verified) {
         setModalVisible(false);
         router.push({
@@ -664,14 +889,12 @@ export default function Savings() {
         return;
       }
 
-      // First, check if payment method exists in Supabase
       let { data: paymentMethodData, error: paymentMethodError } = await supabase
         .from('payment_methods')
         .select('id')
         .eq('stripe_payment_method_id', selectedMethod.id)
         .single();
 
-      // If payment method doesn't exist, create it
       if (paymentMethodError || !paymentMethodData) {
         const { data: newPaymentMethod, error: createError } = await supabase
           .from('payment_methods')
@@ -698,7 +921,6 @@ export default function Savings() {
         throw new Error('Payment method not found or created');
       }
 
-      // Process the deposit
       const response = await fetch('http://localhost:3000/api/process-deposit', {
         method: 'POST',
         headers: {
@@ -720,7 +942,6 @@ export default function Savings() {
       const data = await response.json();
 
       if (data.success) {
-        // Create new savings plan in Supabase
         const { data: savingsPlan, error: savingsError } = await supabase
           .from('savings_plans')
           .insert({
@@ -730,7 +951,7 @@ export default function Savings() {
             fee: TRANSACTION_FEE,
             duration: savingsDuration,
             start_date: new Date().toISOString(),
-            maturity_date: new Date(Date.now() + savingsDuration * 24 * 60 * 60 * 1000).toISOString(),
+            maturity_date: maturityDate.toISOString(),
             status: 'active',
             payment_method_id: paymentMethodData.id
           })
@@ -739,7 +960,6 @@ export default function Savings() {
 
         if (savingsError) throw savingsError;
 
-        // Create transaction record in Supabase
         const { error: transactionError } = await supabase
           .from('transactions')
           .insert({
@@ -762,20 +982,19 @@ export default function Savings() {
           fee: TRANSACTION_FEE,
           duration: savingsDuration,
           startDate: new Date().toISOString(),
-          maturityDate: new Date(Date.now() + savingsDuration * 24 * 60 * 60 * 1000).toISOString(),
+          maturityDate: maturityDate.toISOString(),
         };
 
         setActiveSavingsPlans(prev => [...prev, newPlan]);
+        setSuccessDetails({
+          amount: parseFloat(depositAmount),
+          duration: savingsDuration
+        });
+        setShowSuccessModal(true);
         setModalVisible(false);
         setDepositAmount('');
-        setSavingsDuration(30);
+        setSavingsDuration(null);
         setSelectedPaymentMethod(null);
-
-        Alert.alert(
-          t('common.success'),
-          t('common.savingsPlanCreated'),
-          [{ text: 'OK' }]
-        );
       }
     } catch (error: any) {
       console.error('Error starting savings plan:', error);
@@ -873,44 +1092,45 @@ export default function Savings() {
     );
   };
 
-  const renderMaturedPlan = ({ item }: { item: SavingsPlan }) => {
-    const [withdrawAmount, setWithdrawAmount] = useState('');
-    const [investAmount, setInvestAmount] = useState('');
-
+  const renderMaturedPlan = ({ item }: { item: MaturedSavingsPlan }) => {
     return (
-      <View style={styles.planCard}>
-        <Animated.Text style={[styles.planTitle, { opacity: fadeAnim }]}>
-          {t('common.matured')}: {item.duration} {t('common.weeks')}
-        </Animated.Text>
-        <Animated.Text style={[styles.planDetail, { opacity: fadeAnim }]}>
-          {t('common.amount')}: ${item.amount.toFixed(2)}
-        </Animated.Text>
-        <Animated.Text style={[styles.planDetail, { opacity: fadeAnim }]}>
-          {t('common.maturedOn')}: {new Date(item.maturityDate).toLocaleDateString()}
-        </Animated.Text>
-        <TextInput
-          style={styles.input}
-          placeholder={t('common.amountToWithdraw')}
-          keyboardType="numeric"
-          value={withdrawAmount}
-          onChangeText={setWithdrawAmount}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder={t('common.amountToInvest')}
-          keyboardType="numeric"
-          value={investAmount}
-          onChangeText={setInvestAmount}
-        />
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() =>
-            handleMaturityAction(item, Number(withdrawAmount) || 0, Number(investAmount) || 0)
-          }
-        >
-          <Text style={styles.actionButtonText}>{t('common.confirmAction')}</Text>
-        </TouchableOpacity>
-      </View>
+      <MagicalCard style={styles.planCard}>
+        <View style={styles.planHeader}>
+          <Ionicons name="checkmark-circle" size={24} color="#1976D2" style={styles.planIcon} />
+          <Text style={styles.planTitle}>{t('common.Matured Savings Plan')}</Text>
+        </View>
+        <View style={styles.planDetails}>
+          <Text style={styles.planDetail}>
+            {t('common.amount')}: ${item.amount.toFixed(2)}
+          </Text>
+          <Text style={styles.planDetail}>
+            {t('common.Matured on')}: {new Date(item.maturityDate).toLocaleDateString()}
+          </Text>
+          {item.status === 'pending_action' && (
+            <TouchableOpacity
+              style={styles.MaturedButton}
+              onPress={() => handleMaturedAction(item)}
+            >
+              <LinearGradient
+                colors={['#2196F3', '#1976D2']}
+                style={styles.saveButtonGradient}
+              >
+                <Text style={styles.actionButtonText}>{t('common.Take Action')}</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+          {item.status === 'withdrawn' && (
+            <Text style={styles.statusText}>
+              Withdrawn: ${item.withdrawal_amount?.toFixed(2)}
+            </Text>
+          )}
+          {item.status === 'invested' && (
+            <Text style={styles.statusText}>
+              Invested: ${item.investment_amount?.toFixed(2)}
+            </Text>
+          )}
+        </View>
+      </MagicalCard>
     );
   };
 
@@ -940,10 +1160,15 @@ export default function Savings() {
 
   const loadUser = async () => {
     try {
-      const userJson = await AsyncStorage.getItem('user');
-      if (userJson) {
-        const userData = JSON.parse(userJson);
-        setUser(userData);
+      const { data: { user: supabaseUser }, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      
+      if (supabaseUser) {
+        setUser({
+          id: supabaseUser.id,
+          email: supabaseUser.email,
+          accountCreationDate: new Date(supabaseUser.created_at)
+        });
       }
     } catch (error) {
       console.error('Error loading user:', error);
@@ -957,6 +1182,8 @@ export default function Savings() {
   };
 
   const loadTransactions = async () => {
+    if (!user?.id) return;
+    
     try {
       const { data: transactionsData, error } = await supabase
         .from('transactions')
@@ -988,6 +1215,8 @@ export default function Savings() {
   }, [user]);
 
   const loadSavingsPlans = async () => {
+    if (!user?.id) return;
+    
     try {
       const { data: activePlans, error: activeError } = await supabase
         .from('savings_plans')
@@ -1044,12 +1273,63 @@ export default function Savings() {
         duration: plan.duration,
         startDate: plan.start_date,
         maturityDate: plan.maturity_date,
-        paymentMethod: plan.payment_method
+        paymentMethod: plan.payment_method,
+        status: (plan.status === 'withdrawn' || plan.status === 'invested' ? plan.status : 'pending_action') as 'pending_action' | 'withdrawn' | 'invested',
+        withdrawal_amount: plan.withdrawal_amount,
+        investment_amount: plan.investment_amount,
+        action_date: plan.action_date
       })));
     } catch (error) {
       console.error('Error loading savings plans:', error);
     }
   };
+
+  const handleViewAllActiveSavings = () => {
+    setShowAllActiveSavings(true);
+  };
+
+  const checkMaturedPlans = async () => {
+    try {
+      const now = new Date();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get active plans that have matured
+      const { data: maturedData, error: maturedError } = await supabase
+        .from('savings_plans')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .lte('maturity_date', now.toISOString());
+
+      if (maturedError) throw maturedError;
+
+      if (maturedData && maturedData.length > 0) {
+        // Update matured plans in the database
+        const { error: updateError } = await supabase
+          .from('savings_plans')
+          .update({ status: 'matured' })
+          .in('id', maturedData.map(plan => plan.id));
+
+        if (updateError) throw updateError;
+
+        // Refresh the plans
+        await loadSavingsPlans();
+      }
+    } catch (error) {
+      console.error('Error checking matured plans:', error);
+    }
+  };
+
+  const handleMaturedAction = async (plan: MaturedSavingsPlan) => {
+    router.push({ pathname: '/save/matured-action', params: { planId: plan.id } });
+  };
+
+  useEffect(() => {
+    checkMaturedPlans();
+    const interval = setInterval(checkMaturedPlans, 60000); // Check every minute
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -1131,10 +1411,12 @@ export default function Savings() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>{t('common.activeSavings')}</Text>
-              <MagicalButton style={styles.viewAllButton} onPress={() => {}}>
-                <Text style={styles.viewAllText}>{t('common.viewAll')}</Text>
-                <Ionicons name="chevron-forward" size={16} color="#000" />
-              </MagicalButton>
+              {activeSavingsPlans.length > 3 && !showAllActiveSavings && (
+                <MagicalButton style={styles.viewAllButton} onPress={handleViewAllActiveSavings}>
+                  <Text style={styles.viewAllText}>{t('common.viewAll')}</Text>
+                  <Ionicons name="chevron-forward" size={16} color="#000" />
+                </MagicalButton>
+              )}
             </View>
             
             {activeSavingsPlans.length === 0 ? (
@@ -1159,7 +1441,7 @@ export default function Savings() {
               </MagicalCard>
             ) : (
               <FlatList
-                data={activeSavingsPlans}
+                data={showAllActiveSavings ? activeSavingsPlans : activeSavingsPlans.slice(0, 3)}
                 renderItem={({ item }) => (
                   <MagicalCard style={styles.planCard}>
                     {renderSavingsPlan({ item })}
@@ -1316,6 +1598,13 @@ export default function Savings() {
           </View>
         </View>
       </Modal>
+
+      <SuccessModal
+        visible={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        amount={successDetails.amount}
+        duration={successDetails.duration}
+      />
     </View>
   );
 }
@@ -1408,6 +1697,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '30%',
   },
+  MaturedButton: {
+    alignItems: 'center',
+    width: '45%',
+    marginTop: 30
+  },
   actionImage: {
     width: 32,
     height: 32,
@@ -1437,10 +1731,18 @@ const styles = StyleSheet.create({
   viewAllButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   viewAllText: {
     color: '#000',
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'Poppins',
     marginRight: 4,
   },
@@ -1473,7 +1775,7 @@ const styles = StyleSheet.create({
   },
   planDetail: {
     fontSize: 14,
-    color: '#666',
+    color: '#000',
     fontFamily: 'Poppins',
     marginBottom: 8,
   },
@@ -1541,7 +1843,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   activeDot: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#FFF',
     width: 12,
     height: 12,
     borderRadius: 6,
@@ -1556,10 +1858,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    zIndex: 1000,
   },
   modalContent: {
     width: '90%',
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    maxHeight: '80%',
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 20,
     shadowColor: '#000',
@@ -1570,12 +1874,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+    position: 'relative',
+    zIndex: 1001,
+  },
+  modalScrollView: {
+    maxHeight: '100%',
+  },
+  modalScrollContent: {
+    paddingBottom: 20,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
   modalTitle: {
     fontSize: 20,
@@ -1659,6 +1974,8 @@ const styles = StyleSheet.create({
   saveButtonGradient: {
     padding: 16,
     alignItems: 'center',
+    borderRadius: 20
+
   },
   saveButtonText: {
     color: '#FFFFFF',
@@ -1840,5 +2157,141 @@ const styles = StyleSheet.create({
   },
   gradient: {
     flex: 1,
+  },
+  feeInfoContainer: {
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+  },
+  feeInfoText: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  successModalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  successModalContent: {
+    backgroundColor: 'white',
+    borderRadius: 24,
+    padding: 24,
+    width: '85%',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  successIconContainer: {
+    width: 120,
+    height: 120,
+    marginBottom: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkmarkCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#2196F3',
+  },
+  checkmark: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  successTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2196F3',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  successSubtitle: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  successDetails: {
+    width: '100%',
+    marginBottom: 24,
+  },
+  successDetailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingHorizontal: 16,
+  },
+  successDetailText: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 12,
+  },
+  successButton: {
+    width: '100%',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  successButtonGradient: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  successButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  maturedDetails: {
+    marginBottom: 20,
+    padding: 15,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+  },
+  maturedAmount: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#000',
+    marginBottom: 8,
+  },
+  maturedDate: {
+    fontSize: 16,
+    color: '#666',
+  },
+  actionInputs: {
+    marginBottom: 20,
+  },
+  statusText: {
+    fontSize: 16,
+    color: '#4CAF50',
+    fontWeight: 'bold',
+    marginTop: 8,
+  },
+  planIcon: {
+    marginRight: 8,
+  },
+  actionButtonGradient: {
+    padding: 16,
+    alignItems: 'center',
+    borderRadius: 12,
   },
 });

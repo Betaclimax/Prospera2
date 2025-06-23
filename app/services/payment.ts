@@ -57,7 +57,6 @@ class PaymentService {
     return PaymentService.instance;
   }
 
-  // Initialize payment methods from database
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
@@ -92,7 +91,6 @@ class PaymentService {
     }
   }
 
-  // Connect a bank account
   async connectBankAccount(accountDetails: {
     accountNumber: string;
     routingNumber: string;
@@ -100,7 +98,6 @@ class PaymentService {
     bankName: string;
   }): Promise<PaymentMethod> {
     try {
-      // Always use test account numbers for development
       const testAccountDetails = {
         ...accountDetails,
         accountNumber: '000123456789',
@@ -157,7 +154,6 @@ class PaymentService {
         }
       };
 
-      // Store in Supabase
       const { error: dbError } = await supabase
         .from('payment_methods')
         .insert({
@@ -182,7 +178,6 @@ class PaymentService {
     }
   }
 
-  // Connect a debit card
   async connectDebitCard(cardDetails: { 
     cardNumber: string; 
     expiryDate: string; 
@@ -190,10 +185,33 @@ class PaymentService {
     cardholderName: string 
   }): Promise<PaymentMethod> {
     try {
-      // Validate test card number
       if (cardDetails.cardNumber !== '4000000000000002') {
         console.log('Using test debit card number: 4000000000000002');
         cardDetails.cardNumber = '4000000000000002';
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data: existingCards, error: checkError } = await supabase
+        .from('payment_methods')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('type', 'debit_card')
+        .eq('last4', '0002'); 
+
+      if (checkError) throw checkError;
+
+      if (existingCards && existingCards.length > 0) {
+        console.log('Card already exists:', existingCards[0]);
+        return {
+          id: existingCards[0].stripe_payment_method_id,
+          type: 'debit_card',
+          last4: existingCards[0].last4,
+          isDefault: existingCards[0].is_default,
+          customerId: existingCards[0].stripe_customer_id,
+          is_verified: existingCards[0].is_verified
+        };
       }
 
       console.log('Starting debit card connection process...');
@@ -234,11 +252,10 @@ class PaymentService {
         is_verified: true
       };
 
-      // Store in Supabase
       const { error: dbError } = await supabase
         .from('payment_methods')
         .insert({
-          user_id: (await supabase.auth.getUser()).data.user?.id,
+          user_id: user.id,
           type: 'debit_card',
           stripe_payment_method_id: paymentMethodId,
           stripe_customer_id: customerId,
@@ -257,7 +274,6 @@ class PaymentService {
     }
   }
 
-  // Process a deposit
   async processDeposit(amount: number, paymentMethodId: string): Promise<Transaction> {
     try {
       const paymentMethod = this.paymentMethods.find(pm => pm.id === paymentMethodId);
@@ -286,7 +302,7 @@ class PaymentService {
       const transaction: Transaction = {
         id: data.paymentIntentId,
         amount: amount,
-        netAmount: amount * (1 - 0.02), // 2% fee
+        netAmount: amount * (1 - 0.02), 
         fee: amount * 0.02,
         status: data.status === 'succeeded' ? 'completed' : 'failed',
         paymentMethodId,
@@ -301,7 +317,6 @@ class PaymentService {
     }
   }
 
-  // Process a withdrawal
   async processWithdrawal(amount: number, paymentMethodId: string): Promise<Transaction> {
     try {
       const paymentMethod = this.paymentMethods.find(pm => pm.id === paymentMethodId);
@@ -333,7 +348,6 @@ class PaymentService {
     }
   }
 
-  // Get customer's balance
   async getCustomerBalance(customerId: string): Promise<number> {
     try {
       const response = await fetch(`${API_URL}/customer-balance/${customerId}`);
@@ -349,7 +363,6 @@ class PaymentService {
     }
   }
 
-  // Get user's payment methods
   async getPaymentMethods(): Promise<PaymentMethod[]> {
     if (!this.initialized) {
       await this.initialize();
@@ -357,7 +370,6 @@ class PaymentService {
     return this.paymentMethods;
   }
 
-  // Get user's transaction history
   getTransactions(): Transaction[] {
     return this.transactions;
   }

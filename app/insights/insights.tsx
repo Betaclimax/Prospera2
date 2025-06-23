@@ -92,7 +92,6 @@ export default function Insights() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#1976D2" />
@@ -102,8 +101,6 @@ export default function Insights() {
           <Ionicons name="notifications-outline" size={24} color="#1976D2" />
         </TouchableOpacity>
       </View>
-
-      {/* Categories */}
       <View style={styles.categoriesWrapper}>
         <ScrollView 
           horizontal 
@@ -135,8 +132,6 @@ export default function Insights() {
           ))}
         </ScrollView>
       </View>
-
-      {/* Insights List */}
       <ScrollView style={styles.insightsList} contentContainerStyle={styles.insightsListContent}>
         {insights.map((insight) => (
           <TouchableOpacity key={insight.id} style={styles.insightCard}>

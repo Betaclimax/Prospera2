@@ -23,6 +23,11 @@ interface Achievement {
   progress?: number;
   isCompleted?: boolean;
   unlockedAt?: string;
+  metadata?: any;
+  currentStreak?: number;
+  longestStreak?: number;
+  totalLogins?: number;
+  lastLoginDate?: Date | null;
 }
 
 interface DailyChallenge {
@@ -60,31 +65,24 @@ export default function Achievements() {
   const hoverAnim = useRef(new Animated.Value(0)).current;
   const tabIndicatorAnim = useRef(new Animated.Value(0)).current;
   const tabScaleAnim = useRef(new Animated.Value(1)).current;
-
-  // Challenge-specific animations
   const challengeHoverAnims = useRef<Animated.Value[]>([]).current;
   const startButtonScaleAnims = useRef<Animated.Value[]>([]).current;
 
-  // Achievement card animations
   const cardAnimations = useRef<Animated.Value[]>([]).current;
-
-  // Update animations when achievements change
   useEffect(() => {
-    cardAnimations.length = 0; // Clear existing animations
+    cardAnimations.length = 0; 
     achievements.forEach(() => {
       const anim = new Animated.Value(0);
       cardAnimations.push(anim);
-      // Start the animation
       Animated.timing(anim, {
         toValue: 1,
         duration: 500,
         useNativeDriver: true,
-        delay: cardAnimations.length * 100, // Stagger the animations
+        delay: cardAnimations.length * 100, 
       }).start();
     });
   }, [achievements]);
 
-  // Update challenge animations when challenges change
   useEffect(() => {
     challengeHoverAnims.length = 0;
     startButtonScaleAnims.length = 0;
@@ -114,7 +112,6 @@ export default function Achievements() {
   }, []);
 
   const setupAnimations = () => {
-    // Shimmer animation
     Animated.loop(
       Animated.sequence([
         Animated.timing(shimmerAnim, {
@@ -132,7 +129,6 @@ export default function Achievements() {
       ])
     ).start();
 
-    // Pulse animation for completed achievements
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
@@ -158,25 +154,6 @@ export default function Achievements() {
         console.log('No user found, skipping achievement fetch');
         return;
       }
-
-      console.log('=== DEBUG: Achievement Progress ===');
-      console.log('User ID:', user.id);
-
-      // First, let's check if we have any login records
-      const { data: loginRecords, error: loginError } = await supabase
-        .from('user_logins')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('login_date', { ascending: false });
-
-      if (loginError) {
-        console.error('Error fetching login records:', loginError);
-      } else {
-        console.log('Login records found:', loginRecords?.length || 0);
-        console.log('Latest login:', loginRecords?.[0]);
-      }
-
-      // Fetch all achievements
       const { data: allAchievements, error: achievementsError } = await supabase
         .from('achievements')
         .select('*');
@@ -186,45 +163,61 @@ export default function Achievements() {
         throw achievementsError;
       }
 
-      console.log('Achievements found:', allAchievements?.length || 0);
-      const consistencyKing = allAchievements?.find(a => a.title === 'Consistency King');
-      console.log('Consistency King achievement:', consistencyKing);
-
-      // Fetch user's progress
-      const { data: userProgress, error: progressError } = await supabase
-        .from('user_achievements')
+      const { data: loginRecords, error: loginError } = await supabase
+        .from('user_logins')
         .select('*')
-        .eq('user_id', user.id);
-
-      if (progressError) {
-        console.error('Error fetching user progress:', progressError);
-        throw progressError;
+        .eq('user_id', user.id)
+        .order('login_date', { ascending: true }); 
+      if (loginError) {
+        console.error('Error fetching login records:', loginError);
+        throw loginError;
       }
 
-      console.log('Current user progress:', userProgress);
+      let currentStreak = 0;
+      let longestStreak = 0;
+      let totalLogins = loginRecords?.length || 0;
+      let consecutiveDays = 0;
+      let lastLoginDate = null;
 
-      // Force update the Consistency King progress
+      if (loginRecords && loginRecords.length > 0) {
+        for (let i = 0; i < loginRecords.length; i++) {
+          const currentDate = new Date(loginRecords[i].login_date);
+          const nextDate = i < loginRecords.length - 1 ? new Date(loginRecords[i + 1].login_date) : null;
+          
+          if (nextDate) {
+            const dayDiff = Math.floor((nextDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24));
+            if (dayDiff === 1) {
+              consecutiveDays++;
+              currentStreak = Math.max(currentStreak, consecutiveDays);
+            } else {
+              consecutiveDays = 0;
+            }
+          }
+        }
+        
+        longestStreak = currentStreak;
+        lastLoginDate = new Date(loginRecords[loginRecords.length - 1].login_date);
+      }
+
+      const consistencyKing = allAchievements?.find(a => a.title === 'Consistency King');
+      
       if (consistencyKing) {
-        console.log('Updating Consistency King progress...');
         const { error: updateError } = await supabase
           .from('user_achievements')
           .upsert({
             user_id: user.id,
             achievement_id: consistencyKing.id,
-            progress: 1,
-            is_completed: false
+            progress: currentStreak, 
+            is_completed: currentStreak >= consistencyKing.requirements.target
           }, {
             onConflict: 'user_id,achievement_id'
           });
 
         if (updateError) {
           console.error('Error updating progress:', updateError);
-        } else {
-          console.log('Progress updated successfully');
         }
       }
 
-      // Fetch updated progress
       const { data: updatedProgress, error: updatedError } = await supabase
         .from('user_achievements')
         .select('*')
@@ -232,24 +225,24 @@ export default function Achievements() {
 
       if (updatedError) {
         console.error('Error fetching updated progress:', updatedError);
-      } else {
-        console.log('Updated progress:', updatedProgress);
       }
 
-      // Combine achievements with user progress
       const achievementsWithProgress = allAchievements.map(achievement => {
         const progress = updatedProgress?.find(p => p.achievement_id === achievement.id);
-        const result = {
+        const isConsistencyKing = achievement.title === 'Consistency King';
+        
+        return {
           ...achievement,
           progress: progress?.progress || 0,
           isCompleted: progress?.is_completed || false,
-          unlockedAt: progress?.unlocked_at
+          unlockedAt: progress?.unlocked_at,
+          currentStreak: isConsistencyKing ? currentStreak : 0,
+          longestStreak: isConsistencyKing ? longestStreak : 0,
+          totalLogins: isConsistencyKing ? totalLogins : 0,
+          lastLoginDate: isConsistencyKing ? lastLoginDate : null
         };
-        console.log(`Achievement ${achievement.title}:`, result);
-        return result;
       });
 
-      console.log('Final achievements with progress:', achievementsWithProgress);
       setAchievements(achievementsWithProgress);
     } catch (error) {
       console.error('Error in fetchAchievements:', error);
@@ -257,13 +250,49 @@ export default function Achievements() {
       setLoading(false);
     }
   };
+  const recordLogin = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const today = new Date().toISOString().split('T')[0];
+      const { data: existingLogin } = await supabase
+        .from('user_logins')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('login_date', today)
+        .lt('login_date', new Date(new Date(today).getTime() + 24 * 60 * 60 * 1000).toISOString())
+        .single();
+
+      if (!existingLogin) {
+        const { error } = await supabase
+          .from('user_logins')
+          .insert({
+            user_id: user.id,
+            login_date: new Date().toISOString()
+          });
+
+        if (error) {
+          console.error('Error recording login:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Error in recordLogin:', error);
+    }
+  };
+
+  useEffect(() => {
+    recordLogin(); 
+    fetchAchievements();
+    fetchDailyChallenges();
+    setupAnimations();
+  }, []);
 
   const fetchDailyChallenges = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Fetch today's challenges
       const { data: challenges, error: challengesError } = await supabase
         .from('daily_challenges')
         .select('*')
@@ -271,7 +300,6 @@ export default function Achievements() {
 
       if (challengesError) throw challengesError;
 
-      // Fetch user's progress
       const { data: userProgress, error: progressError } = await supabase
         .from('user_daily_challenges')
         .select('*')
@@ -280,7 +308,6 @@ export default function Achievements() {
 
       if (progressError) throw progressError;
 
-      // Combine challenges with user progress
       const challengesWithProgress = challenges.map(challenge => {
         const progress = userProgress.find(p => p.challenge_id === challenge.id);
         return {
@@ -298,10 +325,8 @@ export default function Achievements() {
 
   useEffect(() => {
     if (showReward) {
-      // Trigger haptic feedback
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
-      // Start celebration animations
       Animated.parallel([
         Animated.spring(scaleAnim, {
           toValue: 1,
@@ -344,7 +369,6 @@ export default function Achievements() {
   }, [showReward]);
 
   useEffect(() => {
-    // Animate tab indicator when tab changes
     Animated.spring(tabIndicatorAnim, {
       toValue: selectedTab === 'achievements' ? 0 : 1,
       useNativeDriver: true,
@@ -371,7 +395,6 @@ export default function Achievements() {
     const target = achievement.requirements.target;
     const progressPercentage = Math.min((progress / target) * 100, 100);
 
-    // Ensure we have an animation value for this index
     if (!cardAnimations[index]) {
       cardAnimations[index] = new Animated.Value(0);
       Animated.timing(cardAnimations[index], {
@@ -381,6 +404,24 @@ export default function Achievements() {
         delay: index * 100,
       }).start();
     }
+
+    const isConsistencyKing = achievement.title === 'Consistency King';
+    const streakInfo = isConsistencyKing ? (
+      <View style={styles.streakInfo}>
+        <View style={styles.streakItem}>
+          <Ionicons name="flame" size={16} color="#FFD700" />
+          <Text style={styles.streakText}>
+            {achievement.currentStreak || 0} {t('common.days')}
+          </Text>
+        </View>
+        <View style={styles.streakItem}>
+          <Ionicons name="trophy" size={16} color="#FFD700" />
+          <Text style={styles.streakText}>
+            {achievement.longestStreak || 0} {t('common.days')}
+          </Text>
+        </View>
+      </View>
+    ) : null;
 
     return (
       <Animated.View
@@ -416,6 +457,8 @@ export default function Achievements() {
                 <Text style={styles.achievementDescription}>{achievement.description}</Text>
               </View>
             </View>
+            
+            {streakInfo}
             
             <View style={styles.progressContainer}>
               <View style={styles.progressBar}>
@@ -505,7 +548,6 @@ export default function Achievements() {
                 ]}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  // Handle challenge start
                 }}
               >
                 <Text style={styles.startButtonText}>{t('common.start')}</Text>
@@ -1005,5 +1047,24 @@ const styles = StyleSheet.create({
   loadingContainer: {
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  streakInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 8,
+    borderRadius: 8,
+  },
+  streakItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  streakText: {
+    fontSize: 12,
+    fontFamily: 'Satoshi',
+    color: '#FFFFFF',
+    marginLeft: 4,
   },
 }); 

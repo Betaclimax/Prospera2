@@ -1,14 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { BarChart, LineChart } from 'react-native-chart-kit';
+import { supabase } from '../../lib/supabase';
 
 const { width } = Dimensions.get('window');
-
-// Mock data for charts
 const transactionData = {
   labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
   datasets: [
@@ -59,6 +57,69 @@ export default function Reports() {
   const { t } = useTranslation();
   const [selectedPeriod, setSelectedPeriod] = useState('6M');
   const [selectedReport, setSelectedReport] = useState('savings');
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [savingsPlans, setSavingsPlans] = useState<any[]>([]);
+  const [investments, setInvestments] = useState<any[]>([]);
+
+  useEffect(() => {
+    loadUser();
+  }, []);
+
+  useEffect(() => {
+    if (userId) {
+      loadData();
+    }
+  }, [userId, selectedPeriod, selectedReport]);
+
+  const loadUser = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setUserId(user.id);
+    } catch (error) {
+      console.error('Error loading user:', error);
+    }
+  };
+
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const endDate = new Date();
+      const startDate = new Date();
+      switch (selectedPeriod) {
+        case '1M': startDate.setMonth(endDate.getMonth() - 1); break;
+        case '3M': startDate.setMonth(endDate.getMonth() - 3); break;
+        case '6M': startDate.setMonth(endDate.getMonth() - 6); break;
+        case '1Y': startDate.setFullYear(endDate.getFullYear() - 1); break;
+        case 'ALL': startDate.setFullYear(endDate.getFullYear() - 5); break;
+      }
+      if (selectedReport === 'savings') {
+        const { data, error } = await supabase
+          .from('savings_plans')
+          .select('*')
+          .eq('user_id', userId)
+          .gte('start_date', startDate.toISOString())
+          .lte('start_date', endDate.toISOString())
+          .order('start_date', { ascending: true });
+        if (error) throw error;
+        setSavingsPlans(data || []);
+      } else {
+        const { data, error } = await supabase
+          .from('investments')
+          .select('*')
+          .eq('user_id', userId)
+          .gte('start_date', startDate.toISOString())
+          .lte('start_date', endDate.toISOString())
+          .order('start_date', { ascending: true });
+        if (error) throw error;
+        setInvestments(data || []);
+      }
+    } catch (error) {
+      console.error('Error loading report data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const goHome = () => router.push('../home/home');
   const goInvest = () => router.push('../invest/invest');
@@ -152,6 +213,24 @@ export default function Reports() {
     </View>
   );
 
+  const groupedSavings = savingsPlans.reduce((acc, plan) => {
+    acc[plan.status] = acc[plan.status] || [];
+    acc[plan.status].push(plan);
+    return acc;
+  }, {} as Record<string, any[]>);
+  const groupedInvestments = investments.reduce((acc, inv) => {
+    acc[inv.status] = acc[inv.status] || [];
+    acc[inv.status].push(inv);
+    return acc;
+  }, {} as Record<string, any[]>);
+
+  const totalProjectedGrowth = savingsPlans.reduce((sum, plan) => {
+    // Assume 1 year projection
+    const principal = plan.amount || 0;
+    const rate = plan.interest_rate || 0.1; // fallback to 10% if not present
+    return sum + principal * (1 + rate * 1);
+  }, 0);
+
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -189,9 +268,8 @@ export default function Reports() {
               <Ionicons name="trending-up" size={20} color="#1976D2" />
             </View>
             <Text style={styles.statValue}>
-              ${selectedReport === 'savings' ? '12,500' : '25,000'}
+              {isLoading ? '...' : selectedReport === 'savings' ? `$${savingsPlans.reduce((sum, p) => sum + (p.amount || 0), 0).toLocaleString()}` : `$${investments.reduce((sum, i) => sum + (i.amount || 0), 0).toLocaleString()}`}
             </Text>
-            <Text style={styles.statChange}>+15% {t('common.vsLastMonth')}</Text>
           </LinearGradient>
 
           <LinearGradient
@@ -207,49 +285,61 @@ export default function Reports() {
               <Ionicons name="wallet-outline" size={20} color="#1976D2" />
             </View>
             <Text style={styles.statValue}>
-              ${selectedReport === 'savings' ? '15,000' : '2,500'}
+              {selectedReport === 'savings'
+                ? isLoading
+                  ? '...'
+                  : `$${totalProjectedGrowth.toLocaleString()}`
+                : isLoading
+                  ? '...'
+                  : `$${investments.reduce((sum, i) => sum + (i.expected_return || 0), 0).toLocaleString()}`}
             </Text>
-            <Text style={styles.statChange}>+8% {t('common.vsLastMonth')}</Text>
           </LinearGradient>
         </View>
 
         <View style={styles.chartContainer}>
           <View style={styles.chartHeader}>
             <Text style={styles.chartTitle}>
-              {selectedReport === 'savings' ? t('common.savingsTrend') : t('common.investmentGrowth')}
+              {selectedReport === 'savings' ? t('common.savingsBreakdown') : t('common.investmentBreakdown')}
             </Text>
           </View>
           <View style={styles.chartWrapper}>
-            {selectedReport === 'savings' ? (
-              <LineChart
-                data={transactionData}
-                width={width - 48}
-                height={220}
-                chartConfig={chartConfig}
-                bezier
-                style={styles.chart}
-                withInnerLines={true}
-                withOuterLines={true}
-                withVerticalLines={false}
-                withHorizontalLines={true}
-                withVerticalLabels={true}
-                withHorizontalLabels={true}
-                fromZero={true}
-              />
+            {isLoading ? (
+              <Text>{t('common.loading')}</Text>
+            ) : selectedReport === 'savings' ? (
+              savingsPlans.length === 0 ? (
+                <Text>{t('common.noSavingsPlans')}</Text>
+              ) : (
+                Object.entries(groupedSavings).map(([status, plans]) => (
+                  <View key={status} style={{ marginBottom: 12 }}>
+                    <Text style={{ fontWeight: 'bold', marginBottom: 4 }}>{status.toUpperCase()}</Text>
+                    {(plans as any[]).map((plan: any) => (
+                      <View key={plan.id} style={{ marginBottom: 4, padding: 8, backgroundColor: '#F5F5F5', borderRadius: 8 }}>
+                        <Text>{t('common.amount')}: ${plan.amount}</Text>
+                        <Text>{t('common.start')}: {new Date(plan.start_date).toLocaleDateString()}</Text>
+                        <Text>{t('common.duration')}: {plan.duration || '--'} {t('common.weeks')}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ))
+              )
             ) : (
-              <BarChart
-                data={investmentData}
-                width={width - 48}
-                height={220}
-                chartConfig={chartConfig}
-                style={styles.chart}
-                showValuesOnTopOfBars
-                yAxisLabel=""
-                yAxisSuffix=""
-                withVerticalLabels={true}
-                withHorizontalLabels={true}
-                fromZero={true}
-              />
+              investments.length === 0 ? (
+                <Text>{t('common.noInvestments')}</Text>
+              ) : (
+                Object.entries(groupedInvestments).map(([status, invs]) => (
+                  <View key={status} style={{ marginBottom: 12 }}>
+                    <Text style={{ fontWeight: 'bold', marginBottom: 4 }}>{status.toUpperCase()}</Text>
+                    {(invs as any[]).map((inv: any) => (
+                      <View key={inv.id} style={{ marginBottom: 4, padding: 8, backgroundColor: '#F5F5F5', borderRadius: 8 }}>
+                        <Text>{t('common.amount')}: ${inv.amount}</Text>
+                        <Text>{t('common.start')}: {new Date(inv.start_date).toLocaleDateString()}</Text>
+                        <Text>{t('common.end')}: {inv.end_date ? new Date(inv.end_date).toLocaleDateString() : '--'}</Text>
+                        <Text>{t('common.return')}: ${inv.expected_return || '--'}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ))
+              )
             )}
           </View>
         </View>

@@ -21,7 +21,6 @@ export default function VerifyBank() {
         return;
       }
 
-      // Convert amounts to numbers and validate
       const amount1Num = parseFloat(amount1);
       const amount2Num = parseFloat(amount2);
 
@@ -69,7 +68,6 @@ export default function VerifyBank() {
             {
               text: 'OK',
               onPress: () => {
-                // If we have deposit amount and duration, go back to savings
                 if (params.depositAmount && params.savingsDuration) {
                   router.push({
                     pathname: '../save/savings',
