@@ -113,7 +113,6 @@ export default function Analytics() {
     setIsLoading(true);
 
     try {
-      // Get date range based on selected period
       const endDate = new Date();
       const startDate = new Date();
       switch (selectedPeriod) {
@@ -130,11 +129,10 @@ export default function Analytics() {
           startDate.setFullYear(endDate.getFullYear() - 1);
           break;
         case 'ALL':
-          startDate.setFullYear(endDate.getFullYear() - 5); // Show last 5 years for ALL
+          startDate.setFullYear(endDate.getFullYear() - 5); 
           break;
       }
 
-      // Fetch savings plans
       const { data: savingsPlans, error: savingsError } = await supabase
         .from('savings_plans')
         .select('*')
@@ -145,7 +143,6 @@ export default function Analytics() {
 
       if (savingsError) throw savingsError;
 
-      // Fetch transactions
       const { data: transactions, error: transactionsError } = await supabase
         .from('transactions')
         .select('*')
@@ -209,11 +206,9 @@ export default function Analytics() {
         }],
       });
 
-      // Calculate stats
-      const totalSaved = savingsPlans?.reduce((sum, plan) => sum + plan.amount, 0) || 0;
+      const totalSaved = savingsPlans?.reduce((sum, plan) => sum + (plan.amount - plan.amount * plan.fee), 0) || 0;
       const activePlans = savingsPlans?.filter(plan => plan.status === 'active').length || 0;
 
-      // Calculate changes compared to previous period
       const previousEndDate = new Date(startDate);
       const previousStartDate = new Date(startDate);
       previousStartDate.setMonth(previousStartDate.getMonth() - 1);
@@ -435,7 +430,6 @@ export default function Analytics() {
               styles.statChange,
               { color: stats.monthlyChange >= 0 ? '#1976D2' : '#FF9800' }
             ]}>
-              {stats.monthlyChange >= 0 ? '+' : ''}{stats.monthlyChange.toFixed(1)}% {t('common.vsLastMonth')}
             </Text>
           </LinearGradient>
 
@@ -458,7 +452,6 @@ export default function Analytics() {
               styles.statChange,
               { color: stats.plansChange >= 0 ? '#1976D2' : '#FF9800' }
             ]}>
-              {stats.plansChange >= 0 ? '+' : ''}{stats.plansChange} {t('common.vsLastMonth')}
             </Text>
           </LinearGradient>
         </View>

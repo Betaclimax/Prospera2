@@ -1062,33 +1062,39 @@ export default function Savings() {
     const totalDays = (maturityDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
     const daysPassed = (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
     const progress = Math.min((daysPassed / totalDays) * 100, 100);
-
     return (
-      <View style={styles.planCard}>
-        <View style={styles.planHeader}>
-          <Image 
-            source={require('../../assets/home/save.png')} 
-            style={{ width: 24, height: 24, marginRight: 8 }}
-          />
-          <Text style={styles.planTitle}>
-            {t('common.activeSavings')}: {item.duration} {t('common.weeks')}
-          </Text>
-        </View>
-        <View style={styles.planDetails}>
-          <Text style={styles.planDetail}>
-            {t('common.amount')}: ${item.amount.toFixed(2)}
-          </Text>
-          <Text style={styles.planDetail}>
-            {t('common.maturityDate')}: {new Date(item.maturityDate).toLocaleDateString()}
-          </Text>
-          <Text style={styles.planDetail}>
-            {t('common.progress')}: {progress.toFixed(1)}%
-          </Text>
-        </View>
-        <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: `${progress}%` }]} />
-        </View>
-      </View>
+      <TouchableOpacity style={styles.investmentCard} activeOpacity={0.95}>
+        <LinearGradient
+          colors={['rgba(227,242,253,0.8)', 'rgba(187,222,251,0.7)']}
+          style={styles.cardGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>${(item.amount - item.amount * item.fee).toFixed(2)}</Text>
+            <View style={styles.statusBadge}>
+              <Text style={styles.statusText}>{t('common.active')}</Text>
+            </View>
+          </View>
+          <View style={styles.cardDetails}>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>{t('common.duration')}</Text>
+              <Text style={styles.detailValue}>{item.duration} {t('common.weeks')}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>{t('common.maturityDate')}</Text>
+              <Text style={styles.detailValue}>{new Date(item.maturityDate).toLocaleDateString()}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>{t('common.progress')}</Text>
+              <Text style={styles.detailValue}>{progress.toFixed(1)}%</Text>
+            </View>
+          </View>
+          <View style={styles.progressBar}>
+            <View style={[styles.progressFill, { width: `${progress}%` }]} />
+          </View>
+        </LinearGradient>
+      </TouchableOpacity>
     );
   };
 
@@ -1101,7 +1107,7 @@ export default function Savings() {
         </View>
         <View style={styles.planDetails}>
           <Text style={styles.planDetail}>
-            {t('common.amount')}: ${item.amount.toFixed(2)}
+            {t('common.amount')}: ${(item.amount-item.fee*item.amount).toFixed(2)}
           </Text>
           <Text style={styles.planDetail}>
             {t('common.Matured on')}: {new Date(item.maturityDate).toLocaleDateString()}
@@ -1327,7 +1333,7 @@ export default function Savings() {
 
   useEffect(() => {
     checkMaturedPlans();
-    const interval = setInterval(checkMaturedPlans, 60000); // Check every minute
+    const interval = setInterval(checkMaturedPlans, 60000); 
     return () => clearInterval(interval);
   }, []);
 
@@ -1367,7 +1373,7 @@ export default function Savings() {
                   <Ionicons name="information-circle-outline" size={20} color="#FFF" />
                 </View>  
                 <Text style={styles.balanceAmount}>
-                  ${activeSavingsPlans.reduce((sum, plan) => sum + plan.amount, 0).toFixed(2)}
+                ${activeSavingsPlans.reduce((sum, plan) => sum + (plan.amount - plan.amount * plan.fee), 0).toFixed(2)}
                 </Text>
               </MagicalCard>
             </View>
@@ -2282,9 +2288,8 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 16,
-    color: '#4CAF50',
+    color: '#000',
     fontWeight: 'bold',
-    marginTop: 8,
   },
   planIcon: {
     marginRight: 8,
@@ -2293,5 +2298,59 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: 'center',
     borderRadius: 12,
+  },
+  investmentCard: {
+    marginBottom: 1,
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
+    width: '120%', 
+    alignSelf: 'center',
+  },
+  cardGradient: {
+    padding: 24,
+    backgroundColor: '#FFFFFF',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  cardTitle: {
+    fontSize: 24,
+    fontFamily: 'Satoshi',
+    color: '#000',
+    fontWeight: 'bold',
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+  },
+  cardDetails: {
+    marginBottom: 16,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  detailLabel: {
+    fontSize: 14,
+    color: '#666',
+    fontFamily: 'Poppins',
+  },
+  detailValue: {
+    fontSize: 14,
+    color: '#000',
+    fontFamily: 'Poppins',
+    fontWeight: '600',
   },
 });
