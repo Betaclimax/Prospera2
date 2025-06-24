@@ -53,16 +53,39 @@ export default function MaturedActionPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not found');
+
+      const { data: payoutMethod, error: payoutMethodError } = await supabase
+        .from('payment_methods')
+        .select('stripe_external_account_id')
+        .eq('user_id', user.id)
+        .eq('is_default', true)
+        .single();
+      if (payoutMethodError || !payoutMethod) throw new Error('No payout method found');
+
+      const payoutRes = await fetch('http://localhost:3000/api/withdraw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          amount: withdrawValue,
+          payoutMethodId: payoutMethod.stripe_external_account_id,
+        }),
+      });
+      const payoutData = await payoutRes.json();
+      if (!payoutData.success) throw new Error(payoutData.error || 'Payout failed');
+
       const { error: updateError } = await supabase
         .from('savings_plans')
         .update({
-          status: totalAmount === plan.amount ? 'withdrawn' : 'invested',
+          status: investValue > 0 ? 'invested' : 'withdrawn',
           withdrawal_amount: withdrawValue,
           investment_amount: investValue,
-          action_date: new Date().toISOString()
+          action_date: new Date().toISOString(),
         })
         .eq('id', plan.id);
       if (updateError) throw updateError;
+
+      // 4. If investing, create investment record
       if (investValue > 0) {
         const investmentEndDate = new Date();
         investmentEndDate.setMonth(investmentEndDate.getMonth() + 6);
@@ -74,23 +97,24 @@ export default function MaturedActionPage() {
             return_amount: investValue * 1.1,
             start_date: new Date().toISOString(),
             end_date: investmentEndDate.toISOString(),
-            status: 'active'
+            status: 'active',
           });
         if (investmentError) throw investmentError;
       }
+
       Toast.show({
         type: 'success',
         text1: t('common.Success'),
-        text2: t('common.Your matured savings have been processed'),
+        text2: t('common.Your matured savings have been processed and payout started'),
         position: 'top',
         visibilityTime: 3000,
       });
       router.replace('/save/savings');
-    } catch (error) {
+    } catch (error: any) {
       Toast.show({
         type: 'error',
         text1: t('common.error'),
-        text2: t('common.Failed to process matured savings'),
+        text2: error.message || t('common.Failed to process matured savings'),
         position: 'top',
         visibilityTime: 3000,
       });
@@ -118,7 +142,7 @@ export default function MaturedActionPage() {
             {plan ? (
               <>
                 <Text style={styles.detailLabel}>{t('common.Total Amount')}</Text>
-                <Text style={styles.detailValue}>${plan.amount?.toFixed(2)}</Text>
+                <Text style={styles.detailValue}>${(plan.amount-plan.amount*plan.fee).toFixed(2)}</Text>
                 <Text style={styles.detailLabel}>{t('common.Matured on')}</Text>
                 <Text style={styles.detailValue}>{new Date(plan.maturity_date).toLocaleDateString()}</Text>
               </>

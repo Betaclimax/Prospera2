@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Alert, Animated, Dimensions, Image, ImageBackground, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Dimensions, Easing, Image, ImageBackground, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { supabase } from '../../lib/supabase';
 
 const INTEREST_RATE = 0.10;
@@ -51,6 +51,145 @@ type Investment = {
   created_at?: string;
 };
 
+type Opportunity = {
+  id: number;
+  title: string;
+  description: string;
+  interest_rate: number;
+  min_amount: number;
+  term_months: number;
+  badgeColor?: string;
+};
+
+interface InvestmentSuccessModalProps {
+  visible: boolean;
+  onClose: () => void;
+  amount: number;
+  profit: number;
+  expectedReturn: number;
+}
+
+const InvestmentSuccessModal = ({ visible, onClose, amount, profit, expectedReturn }: InvestmentSuccessModalProps) => {
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+  const { t } = useTranslation();
+  const checkmarkAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+          easing: Easing.elastic(1.2),
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(checkmarkAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+          easing: Easing.bezier(0.4, 0, 0.2, 1),
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(scaleAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(checkmarkAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [visible]);
+
+  if (!visible) return null;
+
+  const checkmarkScale = checkmarkAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+
+  return (
+    <View style={styles.successModalOverlay}>
+      <Animated.View
+        style={[
+          styles.successModalContent,
+          {
+            transform: [{ scale: scaleAnim }],
+            opacity: opacityAnim,
+          },
+        ]}
+      >
+        <View style={styles.successIconContainer}>
+          <View style={styles.checkmarkCircle}>
+            <Animated.View 
+              style={[
+                styles.checkmark,
+                {
+                  transform: [{ scale: checkmarkScale }],
+                  opacity: checkmarkAnim,
+                }
+              ]}
+            >
+              <Ionicons name="checkmark" size={60} color="#2196F3" />
+            </Animated.View>
+          </View>
+        </View>
+        <Text style={styles.successTitle}>{t('common.Investment Created!')}</Text>
+        <Text style={styles.successSubtitle}>
+          {t('common.You have successfully invested')} ${amount.toFixed(2)} {t('common.for')} {INVEST_MONTHS} {t('common.months')}
+        </Text>
+        <View style={styles.successDetails}>
+          <View style={styles.successDetailItem}>
+            <Ionicons name="trending-up-outline" size={24} color="#2196F3" />
+            <Text style={styles.successDetailText}>
+              {t('common.Expected Profit')}: ${profit.toFixed(2)}
+            </Text>
+          </View>
+          <View style={styles.successDetailItem}>
+            <Ionicons name="calendar-outline" size={24} color="#2196F3" />
+            <Text style={styles.successDetailText}>
+              {t('common.Maturity Date')}: {new Date(Date.now() + INVEST_MONTHS * 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}
+            </Text>
+          </View>
+          <View style={styles.successDetailItem}>
+            <Ionicons name="wallet-outline" size={24} color="#2196F3" />
+            <Text style={styles.successDetailText}>
+              {t('common.Expected Return')}: ${expectedReturn.toFixed(2)}
+            </Text>
+          </View>
+        </View>
+        <TouchableOpacity
+          style={styles.successButton}
+          onPress={onClose}
+        >
+          <LinearGradient
+            colors={['#2196F3', '#1976D2']}
+            style={styles.successButtonGradient}
+          >
+            <Text style={styles.successButtonText}>{t('common.Continue')}</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </Animated.View>
+    </View>
+  );
+};
+
 export default function Invest() {
   const router = useRouter();
   const { t } = useTranslation();
@@ -65,6 +204,11 @@ export default function Invest() {
   const [selectedBackground, setSelectedBackground] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [successDetails, setSuccessDetails] = useState({ amount: 0, profit: 0, expectedReturn: 0 });
+  const [showAllInvestments, setShowAllInvestments] = useState(false);
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([
+  ]);
+  const [maturedPlans, setMaturedPlans] = useState<any[]>([]);
 
   useEffect(() => {
     Animated.sequence([
@@ -101,11 +245,12 @@ export default function Invest() {
   const fetchMaturedSavings = async (userId: string) => {
     const { data, error } = await supabase
       .from('savings_plans')
-      .select('amount')
+      .select('amount, fee')
       .eq('user_id', userId)
       .eq('status', 'matured');
     if (error) throw error;
-    return data?.reduce((sum, plan) => sum + plan.amount, 0) || 0;
+    setMaturedPlans(data || []);
+    return data || [];
   };
 
   const fetchInvestments = async (userId: string) => {
@@ -146,8 +291,9 @@ export default function Invest() {
         const userStr = await AsyncStorage.getItem('user');
         if (!userStr) throw new Error('User not found');
         const user = JSON.parse(userStr);
-        const savings = await fetchMaturedSavings(user.id);
-        setMaturedSavings(savings);
+        const matured = await fetchMaturedSavings(user.id);
+        setMaturedSavings(matured.reduce((sum, plan) => sum + plan.amount, 0));
+        setMaturedPlans(matured);
         const invs = await fetchInvestments(user.id);
         setInvestments(invs);
       } catch (err: any) {
@@ -164,9 +310,12 @@ export default function Invest() {
   const goInbox = () => router.push('../inbox/inbox');
   const goProfile = () => router.push('../profile/profile');
 
+  const netMaturedSavings = maturedPlans.reduce((sum, plan) => sum + (plan.amount - plan.amount * plan.fee), 0);
+  const available = netMaturedSavings - totalInvested;
+
   const handleInvest = async () => {
     const amount = Number(investAmount);
-    if (isNaN(amount) || amount <= 0 || amount > maturedSavings) {
+    if (isNaN(amount) || amount <= 0 || amount > available) {
       Alert.alert(t('common.invalidAmount'), t('common.enterValidAmount'));
       return;
     }
@@ -201,6 +350,7 @@ export default function Invest() {
       setInvestAmount('');
       setShowInvestmentModal(false);
       setShowSuccessModal(true);
+      setSuccessDetails({ amount, profit, expectedReturn });
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to invest');
     } finally {
@@ -215,7 +365,7 @@ export default function Invest() {
       onPress={() => setSelectedInvestment(item)}
     >
       <LinearGradient
-        colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
+        colors={['rgba(227,242,253,0.8)', 'rgba(187,222,251,0.7)']}
         style={styles.cardGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -224,7 +374,7 @@ export default function Invest() {
           <Text style={styles.cardTitle}>${item.amount.toFixed(2)}</Text>
           <View style={[
             styles.statusBadge,
-            { backgroundColor: item.status === 'active' ? '#4CAF50' : '#FFA000' }
+            { backgroundColor: item.status === 'active' ? '#FFF' : '#FFA000' }
           ]}>
             <Text style={styles.statusText}>{t(`common.statuses.${item.status}`)}</Text>
           </View>
@@ -250,6 +400,8 @@ export default function Invest() {
     </TouchableOpacity>
   );
 
+  const activeInvestments = investments.filter(inv => inv.status === 'active');
+
   return (
     <View style={styles.container}>
       <ImageBackground
@@ -260,7 +412,6 @@ export default function Invest() {
         {loading ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100 }}>
             <ActivityIndicator size="large" color="#1976D2" />
-            <Text style={{ color: '#1976D2', marginTop: 16 }}>{t('common.loading')}</Text>
           </View>
         ) : error ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100 }}>
@@ -290,16 +441,12 @@ export default function Invest() {
               <View style={styles.portfolioHeader}>
                 <View>
                   <Text style={styles.portfolioLabel}>{t('common.totalPortfolio')}</Text>
-                  <Text style={styles.portfolioAmount}>${maturedSavings.toFixed(2)}</Text>
-                </View>
-                <View style={styles.portfolioTrend}>
-                  <Ionicons name="trending-up" size={20} color="#1976D2" />
-                  <Text style={styles.trendText}>+2.5% {t('common.thisMonth')}</Text>
+                  <Text style={styles.portfolioAmount}>${netMaturedSavings.toFixed(2)}</Text>
                 </View>
               </View>
               <View style={styles.portfolioStats}>
                 <View style={styles.statItem}>
-                  <Text style={styles.statValue}>${(maturedSavings * 0.4).toFixed(2)}</Text>
+                  <Text style={styles.statValue}>${available.toFixed(2)}</Text>
                   <Text style={styles.statLabel}>{t('common.available')}</Text>
                 </View>
                 <View style={styles.statDivider} />
@@ -324,7 +471,10 @@ export default function Invest() {
               <Text style={styles.actionText}>{t('common.newInvestment')}</Text>
             </TouchableOpacity>
             
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => router.push('./analytics')}
+            >
               <Image 
                 source={require('../../assets/home/analytics.png')} 
                 style={styles.actionImage}
@@ -333,7 +483,10 @@ export default function Invest() {
               <Text style={styles.actionText}>{t('common.analytics')}</Text>
             </TouchableOpacity>
             
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => router.push('./reports')}
+            >
               <Image 
                 source={require('../../assets/home/reports.png')} 
                 style={styles.actionImage}
@@ -346,83 +499,62 @@ export default function Invest() {
           <View style={styles.opportunitiesSection}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>{t('common.investmentOpportunities')}</Text>
-              <TouchableOpacity style={styles.viewAllButton}>
-                <Text style={styles.viewAllText}>{t('common.viewAll')}</Text>
-                <Ionicons name="chevron-forward" size={16} color="#1976D2" />
-              </TouchableOpacity>
+              {/* Optionally add a view all button here */}
             </View>
-
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.opportunitiesList}
-            >
-              <TouchableOpacity style={styles.opportunityCard}>
-                <LinearGradient
-                  colors={['#E3F2FD', '#BBDEFB']}
-                  style={styles.opportunityGradient}
-                >
-                  <View style={styles.opportunityHeader}>
-                    <Text style={styles.opportunityTitle}>Fixed Term</Text>
-                    <View style={styles.opportunityBadge}>
-                      <Text style={styles.opportunityBadgeText}>10% APY</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.opportunityDescription}>
-                    {t('common.fixedTermDescription')}
-                  </Text>
-                  <View style={styles.opportunityStats}>
-                    <View style={styles.opportunityStat}>
-                      <Text style={styles.opportunityStatLabel}>{t('common.minimum')}</Text>
-                      <Text style={styles.opportunityStatValue}>$100</Text>
-                    </View>
-                    <View style={styles.opportunityStat}>
-                      <Text style={styles.opportunityStatLabel}>{t('common.term')}</Text>
-                      <Text style={styles.opportunityStatValue}>6 {t('common.months')}</Text>
-                    </View>
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.opportunityCard}>
-                <LinearGradient
-                  colors={['#E8F5E9', '#C8E6C9']}
-                  style={styles.opportunityGradient}
-                >
-                  <View style={styles.opportunityHeader}>
-                    <Text style={styles.opportunityTitle}>Growth Fund</Text>
-                    <View style={[styles.opportunityBadge, { backgroundColor: '#4CAF50' }]}>
-                      <Text style={styles.opportunityBadgeText}>15% APY</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.opportunityDescription}>
-                    {t('common.growthFundDescription')}
-                  </Text>
-                  <View style={styles.opportunityStats}>
-                    <View style={styles.opportunityStat}>
-                      <Text style={styles.opportunityStatLabel}>{t('common.minimum')}</Text>
-                      <Text style={styles.opportunityStatValue}>$500</Text>
-                    </View>
-                    <View style={styles.opportunityStat}>
-                      <Text style={styles.opportunityStatLabel}>{t('common.term')}</Text>
-                      <Text style={styles.opportunityStatValue}>12 {t('common.months')}</Text>
-                    </View>
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
-            </ScrollView>
+            {opportunities.length === 0 ? (
+              <View style={styles.emptyStateCard}>
+                <View style={styles.emptyStateIconWrapper}>
+                  <Ionicons name="bulb-outline" size={48} color="#1976D2" />
+                </View>
+                <Text style={styles.emptyStateHeadline}>{t('common.noOpportunities') || 'No investment opportunities yet'}</Text>
+                <Text style={styles.emptyStateSubtextModern}>{t('common.checkBackLater') || 'We are always looking for new ways to help you grow. Check back soon or tap below to get notified!'}</Text>
+                <TouchableOpacity style={styles.emptyStateCtaButton} onPress={() => { /* TODO: Add notification logic */ }}>
+                  <Text style={styles.emptyStateCtaButtonText}>{t('common.notifyMe') || 'Notify Me'}</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.opportunitiesList}>
+                {opportunities.map(op => (
+                  <TouchableOpacity key={op.id} style={styles.opportunityCard}>
+                    <LinearGradient colors={['#E3F2FD', op.badgeColor || '#BBDEFB']} style={styles.opportunityGradient}>
+                      <View style={styles.opportunityHeader}>
+                        <Text style={styles.opportunityTitle}>{op.title}</Text>
+                        <View style={[styles.opportunityBadge, { backgroundColor: op.badgeColor || '#1976D2' }]}> 
+                          <Text style={styles.opportunityBadgeText}>{(op.interest_rate * 100).toFixed(0)}% APY</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.opportunityDescription}>{op.description}</Text>
+                      <View style={styles.opportunityStats}>
+                        <View style={styles.opportunityStat}>
+                          <Text style={styles.opportunityStatLabel}>{t('common.minimum')}</Text>
+                          <Text style={styles.opportunityStatValue}>${op.min_amount}</Text>
+                        </View>
+                        <View style={styles.opportunityStat}>
+                          <Text style={styles.opportunityStatLabel}>{t('common.term')}</Text>
+                          <Text style={styles.opportunityStatValue}>{op.term_months} {t('common.months')}</Text>
+                        </View>
+                      </View>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
           </View>
 
           <View style={styles.investmentsSection}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>{t('common.yourInvestments')}</Text>
-              <TouchableOpacity style={styles.viewAllButton}>
-                <Text style={styles.viewAllText}>{t('common.viewAll')}</Text>
-                <Ionicons name="chevron-forward" size={16} color="#1976D2" />
-              </TouchableOpacity>
+              {activeInvestments.length > 3 && (
+                <TouchableOpacity style={styles.viewAllButton} onPress={() => setShowAllInvestments(v => !v)}>
+                  <Text style={styles.viewAllText}>
+                    {showAllInvestments ? t('common.showLess') : t('common.viewAll')}
+                  </Text>
+                  <Ionicons name={showAllInvestments ? 'chevron-up' : 'chevron-forward'} size={16} color="#1976D2" />
+                </TouchableOpacity>
+              )}
             </View>
 
-            {investments.length === 0 ? (
+            {activeInvestments.length === 0 ? (
               <View style={styles.emptyState}>
                 <LinearGradient
                   colors={['#E3F2FD', '#BBDEFB']}
@@ -445,7 +577,9 @@ export default function Invest() {
                 </LinearGradient>
               </View>
             ) : (
-              investments.map(renderInvestment)
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.investmentsList}>
+                {(showAllInvestments ? activeInvestments : activeInvestments.slice(0, 3)).map(renderInvestment)}
+              </ScrollView>
             )}
           </View>
         </ScrollView>
@@ -563,7 +697,7 @@ export default function Invest() {
               disabled={!investAmount}
             >
               <LinearGradient
-                colors={investAmount ? ['#4CAF50', '#45a049'] : ['#CCCCCC', '#BBBBBB']}
+                colors={investAmount ? ['#2196F3', '#1976D2'] : ['#CCCCCC', '#BBBBBB']}
                 style={styles.investButtonGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
@@ -578,27 +712,13 @@ export default function Invest() {
         </BlurView>
       </Modal>
 
-      <Modal
+      <InvestmentSuccessModal
         visible={showSuccessModal}
-        transparent={true}
-        animationType="fade"
-      >
-        <BlurView intensity={20} style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalIconContainer}>
-              <Ionicons name="checkmark-circle" size={64} color="#4CAF50" />
-            </View>
-            <Text style={styles.modalTitle}>{t('common.submitted')}</Text>
-            <Text style={styles.modalDescription}>{t('common.submittedDescription')}</Text>
-            <TouchableOpacity 
-              style={styles.modalButton}
-              onPress={() => setShowSuccessModal(false)}
-            >
-              <Text style={styles.modalButtonText}>{t('common.close')}</Text>
-            </TouchableOpacity>
-          </View>
-        </BlurView>
-      </Modal>
+        onClose={() => setShowSuccessModal(false)}
+        amount={successDetails.amount}
+        profit={successDetails.profit}
+        expectedReturn={successDetails.expectedReturn}
+      />
     </View>
   );
 }
@@ -847,6 +967,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 12,
     elevation: 8,
+    width: width - 48,
+    alignSelf: 'center',
   },
   cardGradient: {
     padding: 24,
@@ -871,7 +993,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1976D2',
   },
   statusText: {
-    color: '#fff',
+    color: '#000',
     fontSize: 14,
     fontFamily: 'Poppins',
   },
@@ -1205,5 +1327,148 @@ const styles = StyleSheet.create({
   },
   gradient: {
     flex: 1,
+  },
+  successModalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  successModalContent: {
+    backgroundColor: 'white',
+    borderRadius: 24,
+    padding: 24,
+    width: '85%',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  successIconContainer: {
+    width: 120,
+    height: 120,
+    marginBottom: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkmarkCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#2196F3',
+  },
+  checkmark: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  successTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2196F3',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  successSubtitle: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  successDetails: {
+    width: '100%',
+    marginBottom: 24,
+  },
+  successDetailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingHorizontal: 16,
+  },
+  successDetailText: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 12,
+  },
+  successButton: {
+    width: '100%',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  successButtonGradient: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  successButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  emptyStateCard: {
+    backgroundColor: '#E3F2FD',
+    borderRadius: 24,
+    alignItems: 'center',
+    padding: 32,
+    marginHorizontal: 24,
+    marginTop: 16,
+    shadowColor: '#E3F2FD',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  emptyStateIconWrapper: {
+    backgroundColor: '#FFF',
+    borderRadius: 32,
+    padding: 16,
+    marginBottom: 16,
+  },
+  emptyStateHeadline: {
+    fontSize: 20,
+    color: '#E3F2FD',
+    fontFamily: 'Satoshi',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptyStateSubtextModern: {
+    fontSize: 15,
+    color: '#000',
+    fontFamily: 'Satoshi',
+    textAlign: 'center',
+    marginBottom: 20,
+    opacity: 0.85,
+  },
+  emptyStateCtaButton: {
+    backgroundColor: '#1976D2',
+    borderRadius: 12,
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  emptyStateCtaButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'Poppins',
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  investmentsList: {
+    paddingRight: 24,
+    flexDirection: 'row',
+    gap: 16,
   },
 });
